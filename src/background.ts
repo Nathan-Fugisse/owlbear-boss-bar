@@ -14,11 +14,11 @@ interface BossState {
   boss: BossData;
 }
 
-let bossBarOpen = false;
+let overlayOpen = false;
 
 function getDefaultBoss(): BossData {
   return {
-    name: "Exemple Boss",
+    name: "EXAMPLE BOSS",
     currentHp: 1000,
     maxHp: 1000,
     color: "#8B0000",
@@ -29,78 +29,54 @@ function getDefaultBoss(): BossData {
 async function getBoss(): Promise<BossData> {
   const metadata = await OBR.room.getMetadata();
 
-  const data = metadata[EXTENSION_ID] as BossState | undefined;
+  const state = metadata[EXTENSION_ID] as BossState | undefined;
 
-  if (!data?.boss) {
+  if (!state?.boss) {
     return getDefaultBoss();
   }
 
-  return data.boss;
+  return state.boss;
 }
 
-async function openBossBar() {
-  if (bossBarOpen) {
-    return;
-  }
+async function openBossOverlay() {
+  if (overlayOpen) return;
 
-  bossBarOpen = true;
+  overlayOpen = true;
 
-  await OBR.popover.open({
-    id: `${EXTENSION_ID}/bossbar`,
+  await OBR.modal.open({
+    id: `${EXTENSION_ID}/overlay`,
     url: "/bossbar.html",
-    width: 760,
-    height: 100,
-
-    anchorReference: "POSITION",
-
-    anchorPosition: {
-      left: window.innerWidth / 2,
-      top: window.innerHeight - 80,
-    },
-
-    anchorOrigin: {
-      horizontal: "CENTER",
-      vertical: "CENTER",
-    },
-
-    transformOrigin: {
-      horizontal: "CENTER",
-      vertical: "CENTER",
-    },
-
+    fullScreen: true,
+    hideBackdrop: true,
     hidePaper: true,
-    disableClickAway: true,
+    disablePointerEvents: true,
   });
 }
 
-async function closeBossBar() {
-  if (!bossBarOpen) {
-    return;
-  }
+async function closeBossOverlay() {
+  if (!overlayOpen) return;
 
-  bossBarOpen = false;
+  overlayOpen = false;
 
-  await OBR.popover.close(
-    `${EXTENSION_ID}/bossbar`
-  );
+  await OBR.modal.close(`${EXTENSION_ID}/overlay`);
 }
 
-async function updateBossBar() {
+async function updateBossOverlay() {
   const boss = await getBoss();
 
   if (boss.visible) {
-    await openBossBar();
+    await openBossOverlay();
   } else {
-    await closeBossBar();
+    await closeBossOverlay();
   }
 }
 
 OBR.onReady(async () => {
-  console.log("Boss Bar Load.");
+  console.log("RPG Boss Bar carregada.");
 
-  await updateBossBar();
+  await updateBossOverlay();
 
   OBR.room.onMetadataChange(async () => {
-    await updateBossBar();
+    await updateBossOverlay();
   });
 });

@@ -15,19 +15,11 @@ interface BossState {
 }
 
 function renderBoss(boss: BossData) {
+  const container = document.getElementById("boss-container");
+  const name = document.getElementById("boss-name");
+  const hp = document.getElementById("boss-hp");
 
-  const container =
-    document.getElementById("boss-container");
-
-  const name =
-    document.getElementById("boss-name");
-
-  const hp =
-    document.getElementById("boss-hp");
-
-  if (!container || !name || !hp) {
-    return;
-  }
+  if (!container || !name || !hp) return;
 
   if (!boss.visible) {
     container.style.display = "none";
@@ -39,13 +31,12 @@ function renderBoss(boss: BossData) {
   name.textContent = boss.name;
 
   const percentage =
-    Math.max(
-      0,
-      Math.min(
-        100,
-        (boss.currentHp / boss.maxHp) * 100
-      )
-    );
+    boss.maxHp > 0
+      ? Math.max(
+          0,
+          Math.min(100, (boss.currentHp / boss.maxHp) * 100)
+        )
+      : 0;
 
   hp.style.width = `${percentage}%`;
 
@@ -53,34 +44,27 @@ function renderBoss(boss: BossData) {
 
   hp.style.boxShadow = `
     inset 0 1px 1px rgba(255,255,255,.25),
-    0 0 10px ${boss.color}
+    0 0 12px ${boss.color}
   `;
 }
 
 async function loadBoss() {
-
-  const metadata =
-    await OBR.room.getMetadata();
+  const metadata = await OBR.room.getMetadata();
 
   const state =
     metadata[EXTENSION_ID] as BossState | undefined;
 
-  const boss =
-    state?.boss;
-
-  if (!boss) {
+  if (!state?.boss) {
     return;
   }
 
-  renderBoss(boss);
+  renderBoss(state.boss);
 }
 
 OBR.onReady(async () => {
-
   await loadBoss();
 
   OBR.room.onMetadataChange(() => {
     loadBoss();
   });
-
 });
