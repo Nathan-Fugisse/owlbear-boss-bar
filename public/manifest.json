@@ -1,0 +1,16 @@
+{
+  "name": "RPG Boss Bar",
+  "version": "0.1.0",
+  "manifest_version": 1,
+  "description": "Boss Bar style Soulslike for Owlbear Rodeo.",
+  "author": "Nathan Fugisse",
+  "icon": "/icon.svg",
+  "background_url": "/background.html",
+  "action": {
+    "title": "Boss Bar",
+    "icon": "/icon.svg",
+    "popover": "/",
+    "width": 380,
+    "height": 620
+  }
+}
