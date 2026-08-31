@@ -33,6 +33,7 @@ interface Cinematic {
 
 interface ActiveCinematic {
   cinematic: Cinematic;
+  introDurationMs?: number;
   startedAt: number;
   nonce: string;
   directorId: string;
@@ -59,8 +60,12 @@ let cueTimer = 0;
 let runningNonce = "";
 const executedCueIds = new Set<string>();
 
+function introDuration(active: ActiveCinematic): number {
+  return Math.max(0, Number(active.introDurationMs) || 4500);
+}
+
 function cinematicDuration(active: ActiveCinematic): number {
-  return active.cinematic.scenes.reduce(
+  return introDuration(active) + active.cinematic.scenes.reduce(
     (sum, scene) => sum + Math.max(500, Number(scene.durationMs) || 500),
     0
   );
@@ -75,7 +80,7 @@ function getTimelineCues(active: ActiveCinematic): Array<{ cue: CinematicCue; ab
     for (const cue of scene.cues ?? []) {
       result.push({
         cue,
-        absoluteMs: offset + Math.max(0, Number(cue.atMs) || 0),
+        absoluteMs: introDuration(active) + offset + Math.max(0, Number(cue.atMs) || 0),
       });
     }
     offset += duration;

@@ -4,6 +4,7 @@ import "./style.css";
 const EXTENSION_ID = "com.nathan.rpg-boss-bar";
 const CINEMATIC_STORAGE_KEY = `${EXTENSION_ID}/cinematics`;
 const MAX_ACTIVE_CINEMATIC_BYTES = 14000;
+const DEFAULT_INTRO_DURATION_MS = 4500;
 
 interface BossData {
   name: string;
@@ -62,6 +63,8 @@ export interface Cinematic {
 
 interface ActiveCinematic {
   cinematic: Cinematic;
+  /** Time spent showing the boss introduction before the map timeline begins. */
+  introDurationMs: number;
   startedAt: number;
   nonce: string;
   directorId: string;
@@ -148,6 +151,7 @@ async function saveBoss(boss: BossData): Promise<void> {
 async function playCinematic(cinematic: Cinematic): Promise<void> {
   const payload: ActiveCinematic = {
     cinematic,
+    introDurationMs: DEFAULT_INTRO_DURATION_MS,
     startedAt: Date.now(),
     nonce: uid("play"),
     directorId: OBR.player.id,

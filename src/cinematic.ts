@@ -49,6 +49,7 @@ interface Cinematic {
 
 interface ActiveCinematic {
   cinematic: Cinematic;
+  introDurationMs?: number;
   startedAt: number;
   nonce: string;
   directorId: string;
@@ -69,11 +70,15 @@ function getActiveFromMetadata(metadata: Record<string, unknown>): ActiveCinemat
   return state?.activeCinematic ?? null;
 }
 
-function totalDuration(cinematic: Cinematic): number {
+function timelineDuration(cinematic: Cinematic): number {
   return cinematic.scenes.reduce(
     (sum, scene) => sum + Math.max(500, Number(scene.durationMs) || 500),
     0
   );
+}
+
+function introDuration(active: ActiveCinematic): number {
+  return Math.max(0, Number(active.introDurationMs) || 4500);
 }
 
 function sceneAt(cinematic: Cinematic, elapsed: number) {
@@ -109,38 +114,52 @@ function opacityAfterCue(elapsed: number, cueTime: number, ramp = 280): number {
   return Math.min(1, (elapsed - cueTime) / Math.max(1, ramp));
 }
 
-function renderScene(scene: CinematicScene, elapsed: number) {
+function renderBossIntroduction(scene: CinematicScene, elapsed: number, duration: number) {
   const root = document.getElementById("cinematic-root")!;
-  root.style.background = "transparent";
-
   const image = document.getElementById("cinematic-image") as HTMLImageElement;
   const subtitle = document.getElementById("cinematic-subtitle")!;
   const title = document.getElementById("cinematic-title")!;
+  const copy = document.querySelector<HTMLElement>(".cinematic-copy")!;
 
-  // Keep the cinematic overlay transparent so the actual Owlbear scene and the
-  // camera movement remain visible to players.
-  image.removeAttribute("src");
-  image.style.display = "none";
+  root.classList.add("boss-intro");
+  root.style.background = scene.background || "#080808";
+  copy.style.display = "block";
+
+  if (scene.imageUrl) {
+    image.src = scene.imageUrl;
+    image.style.display = "block";
+  } else {
+    image.removeAttribute("src");
+    image.style.display = "none";
+  }
 
   subtitle.textContent = scene.subtitle || "";
   title.textContent = scene.title || "";
 
-  const cues = scene.cues ?? [];
-  const titleCue = cues.find((cue) => cue.type === "TITLE_IN");
-  const subtitleCue = cues.find((cue) => cue.type === "SUBTITLE_IN");
-  const titleOpacity = titleCue ? opacityAfterCue(elapsed, titleCue.atMs) : 1;
-  const subtitleOpacity = subtitleCue ? opacityAfterCue(elapsed, subtitleCue.atMs) : 1;
-
-  subtitle.style.opacity = String(subtitleOpacity);
-  title.style.opacity = String(titleOpacity);
-
-  const fadeIn = Math.min(1, elapsed / Math.max(1, scene.fadeInMs));
-  const fadeOutStart = Math.max(0, scene.durationMs - scene.fadeOutMs);
+  const fadeInMs = Math.min(700, Math.max(150, duration * 0.2));
+  const fadeOutMs = Math.min(700, Math.max(150, duration * 0.2));
+  const fadeIn = Math.min(1, elapsed / fadeInMs);
+  const fadeOutStart = Math.max(0, duration - fadeOutMs);
   const fadeOut = elapsed >= fadeOutStart
-    ? Math.max(0, 1 - (elapsed - fadeOutStart) / Math.max(1, scene.fadeOutMs))
+    ? Math.max(0, 1 - (elapsed - fadeOutStart) / fadeOutMs)
     : 1;
 
   root.style.setProperty("--scene-opacity", String(Math.min(fadeIn, fadeOut)));
+  subtitle.style.opacity = "1";
+  title.style.opacity = "1";
+}
+
+function renderTimelineOverlay() {
+  const root = document.getElementById("cinematic-root")!;
+  const image = document.getElementById("cinematic-image") as HTMLImageElement;
+  const copy = document.querySelector<HTMLElement>(".cinematic-copy")!;
+
+  root.classList.remove("boss-intro");
+  root.style.background = "transparent";
+  root.style.setProperty("--scene-opacity", "1");
+  image.removeAttribute("src");
+  image.style.display = "none";
+  copy.style.display = "none";
 }
 
 function easeInOut(t: number): number {
@@ -200,20 +219,31 @@ async function play(active: ActiveCinematic) {
 
   const cinematic = active.cinematic;
   const startedAt = active.startedAt;
-  const total = totalDuration(cinematic);
+  const introMs = introDuration(active);
+  const timelineMs = timelineDuration(cinematic);
 
   const tick = async () => {
     if (active.nonce !== activeNonce) return;
 
-    const elapsed = Date.now() - startedAt;
-    if (elapsed >= total) {
+    const elapsedTotal = Date.now() - startedAt;
+    if (elapsedTotal >= introMs + timelineMs) {
       await close();
       return;
     }
 
-    const { scene, elapsed: sceneElapsed } = sceneAt(cinematic, elapsed);
-    renderScene(scene, sceneElapsed);
-    await applyCamera(scene, sceneElapsed);
+    // Phase 1: keep the boss introduction exactly as a full-screen card.
+    // The map camera and all timeline events are intentionally paused here.
+    if (elapsedTotal < introMs) {
+      const introScene = cinematic.scenes[0];
+      if (introScene) renderBossIntroduction(introScene, elapsedTotal, introMs);
+    } else {
+      // Phase 2: remove the card and reveal the actual Owlbear map.
+      // Only now does the camera timeline start moving the player's viewport.
+      renderTimelineOverlay();
+      const timelineElapsed = elapsedTotal - introMs;
+      const { scene, elapsed: sceneElapsed } = sceneAt(cinematic, timelineElapsed);
+      await applyCamera(scene, sceneElapsed);
+    }
 
     animationFrame = requestAnimationFrame(() => {
       void tick();

@@ -36,6 +36,13 @@ body.active {
 
 #cinematic-root::before { content: none; }
 
+/* The intro card is visible first. After it fades away the same full-screen
+   modal becomes completely transparent so the Owlbear map and camera motion
+   are visible to the players. */
+#cinematic-root:not(.boss-intro) {
+  pointer-events: none;
+}
+
 #cinematic-image {
   position: absolute;
   inset: 0;
@@ -57,7 +64,7 @@ body.active {
   left: 0;
   right: 0;
   height: 10vh;
-  background: transparent;
+  background: #000;
   z-index: 5;
 }
 
