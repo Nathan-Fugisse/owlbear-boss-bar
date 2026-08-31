@@ -205,8 +205,24 @@ async function initialize(): Promise<void> {
 
   // The director/editor is GM-only. Players may still receive the cinematic
   // through background.ts, but never get access to the control interface.
-  const getRole = (OBR.player as unknown as { getRole?: () => Promise<string> }).getRole;
-  const role = getRole ? await getRole() : "PLAYER";
+  // IMPORTANT: call the SDK method directly. Extracting getRole into a variable can
+  // lose its SDK context and leave the popover blank if the call throws.
+  let role: "GM" | "PLAYER";
+  try {
+    role = await OBR.player.getRole();
+  } catch (error) {
+    console.error("Unable to read Owlbear player role", error);
+    app.innerHTML = `
+      <main class="gm-shell role-error">
+        <div class="panel player-locked-card">
+          <div class="brand-mark">!</div>
+          <h1>RPG BOSS BAR</h1>
+          <p>Unable to verify your Owlbear role. Close and reopen the extension.</p>
+        </div>
+      </main>`;
+    return;
+  }
+
   if (role !== "GM") {
     app.innerHTML = `
       <main class="gm-shell player-locked">
@@ -563,9 +579,6 @@ async function initialize(): Promise<void> {
             <div>
               <span class="eyebrow">LEGACY CAMERA DEFAULT</span>
               <strong>Optional camera position for the whole scene</strong>
-            </div>
-          </div>
-              <strong>Move the players' viewport during this scene</strong>
             </div>
           </div>
           <div class="form-grid camera-grid">
