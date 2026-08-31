@@ -60,12 +60,13 @@ body.active {
 }
 
 .letterbox {
-  position: absolute;
+  position: fixed;
   left: 0;
   right: 0;
   height: 10vh;
   background: #000;
-  z-index: 5;
+  z-index: 9999;
+  display: none;
 }
 
 .letterbox.top { top: 0; }
@@ -129,3 +130,11 @@ body.active {
 }
 .timeline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
+
+/* Keep the cinematic black borders visible from the intro until the cinematic ends. */
+#cinematic-root.cinematic-running .letterbox {
+  display: block;
+}
+#cinematic-root.cinematic-running {
+  pointer-events: none;
+}

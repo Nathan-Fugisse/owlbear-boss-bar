@@ -14,12 +14,19 @@ type CueType =
   | "TOKEN_SHOW"
   | "TOKEN_HIDE";
 
+interface CameraCue {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 interface CinematicCue {
   id: string;
   atMs: number;
   type: CueType;
   value?: number;
   tokenIds?: string[];
+  camera?: CameraCue;
 }
 
 interface CinematicScene {
@@ -57,6 +64,8 @@ let cinematicOpen = false;
 let lastCompletedNonce = "";
 let completionTimer = 0;
 let cueTimer = 0;
+let cameraTimer = 0;
+let cameraRunningNonce = "";
 let runningNonce = "";
 const executedCueIds = new Set<string>();
 
@@ -175,6 +184,114 @@ async function executeTokenCue(cue: CinematicCue) {
   });
 }
 
+
+function stopCameraScheduler() {
+  if (cameraTimer) {
+    window.clearTimeout(cameraTimer);
+    cameraTimer = 0;
+  }
+  cameraRunningNonce = "";
+}
+
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function getCameraTimeline(active: ActiveCinematic): Array<{ atMs: number; camera: CameraCue }> {
+  const result: Array<{ atMs: number; camera: CameraCue }> = [];
+  let offset = introDuration(active);
+
+  for (const scene of active.cinematic.scenes) {
+    const duration = Math.max(500, Number(scene.durationMs) || 500);
+    for (const cue of scene.cues ?? []) {
+      if (cue.type !== "CAMERA" || !cue.camera) continue;
+      const x = Number(cue.camera.x);
+      const y = Number(cue.camera.y);
+      const scale = Number(cue.camera.scale);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(scale)) continue;
+      result.push({
+        atMs: offset + Math.max(0, Number(cue.atMs) || 0),
+        camera: { x, y, scale },
+      });
+    }
+    offset += duration;
+  }
+
+  return result.sort((a, b) => a.atMs - b.atMs);
+}
+
+/**
+ * IMPORTANT: This runs in the extension BACKGROUND page, not inside the
+ * cinematic modal. Owlbear creates one background instance for every client,
+ * so this moves each connected player's own viewport locally while all clients
+ * read the same shared cinematic metadata.
+ */
+function scheduleCameraForEveryone(active: ActiveCinematic) {
+  if (cameraRunningNonce === active.nonce) return;
+  stopCameraScheduler();
+
+  const keys = getCameraTimeline(active);
+  if (keys.length === 0) return;
+
+  cameraRunningNonce = active.nonce;
+
+  const tick = async () => {
+    if (cameraRunningNonce !== active.nonce) return;
+
+    const elapsed = Date.now() - active.startedAt;
+    if (elapsed < introDuration(active)) {
+      cameraTimer = window.setTimeout(() => void tick(), 30);
+      return;
+    }
+
+    const totalDuration = cinematicDuration(active);
+    if (elapsed > totalDuration + 100) {
+      stopCameraScheduler();
+      return;
+    }
+
+    let target = keys[0].camera;
+
+    if (elapsed <= keys[0].atMs) {
+      target = keys[0].camera;
+    } else if (elapsed >= keys[keys.length - 1].atMs) {
+      target = keys[keys.length - 1].camera;
+    } else {
+      for (let index = 0; index < keys.length - 1; index += 1) {
+        const from = keys[index];
+        const to = keys[index + 1];
+        if (elapsed >= from.atMs && elapsed < to.atMs) {
+          const span = Math.max(1, to.atMs - from.atMs);
+          const raw = Math.max(0, Math.min(1, (elapsed - from.atMs) / span));
+          const t = easeInOut(raw);
+          target = {
+            x: lerp(from.camera.x, to.camera.x, t),
+            y: lerp(from.camera.y, to.camera.y, t),
+            scale: lerp(from.camera.scale, to.camera.scale, t),
+          };
+          break;
+        }
+      }
+    }
+
+    try {
+      await OBR.viewport.setPosition({ x: target.x, y: target.y });
+      await OBR.viewport.setScale(target.scale);
+    } catch (error) {
+      // Do not kill the cinematic loop if one local viewport update fails.
+      console.error("RPG Boss Bar: could not move local cinematic camera", error);
+    }
+
+    cameraTimer = window.setTimeout(() => void tick(), 33);
+  };
+
+  void tick();
+}
+
 function stopCueScheduler() {
   if (cueTimer) {
     window.clearTimeout(cueTimer);
@@ -234,6 +351,7 @@ async function finishCinematic(active: ActiveCinematic) {
   if (active.nonce !== lastCompletedNonce) {
     lastCompletedNonce = active.nonce;
     stopCueScheduler();
+    stopCameraScheduler();
     await closeCinematicOverlay();
 
     // The director ends the shared cinematic state. If a BOSS_SHOW cue
@@ -276,6 +394,7 @@ async function updateOverlays() {
     if (runningNonce !== active.nonce) {
       scheduleCompletion(active);
       scheduleTimeline(active);
+      scheduleCameraForEveryone(active);
     }
 
     return;
@@ -284,6 +403,7 @@ async function updateOverlays() {
   if (!active) {
     lastCompletedNonce = "";
     stopCueScheduler();
+    stopCameraScheduler();
 
     if (completionTimer) {
       window.clearTimeout(completionTimer);

@@ -121,7 +121,7 @@ function renderBossIntroduction(scene: CinematicScene, elapsed: number, duration
   const title = document.getElementById("cinematic-title")!;
   const copy = document.querySelector<HTMLElement>(".cinematic-copy")!;
 
-  root.classList.add("boss-intro");
+  root.classList.add("boss-intro", "cinematic-running");
   root.style.background = scene.background || "#080808";
   copy.style.display = "block";
 
@@ -155,6 +155,7 @@ function renderTimelineOverlay() {
   const copy = document.querySelector<HTMLElement>(".cinematic-copy")!;
 
   root.classList.remove("boss-intro");
+  root.classList.add("cinematic-running");
   root.style.background = "transparent";
   root.style.setProperty("--scene-opacity", "1");
   image.removeAttribute("src");
@@ -241,8 +242,9 @@ async function play(active: ActiveCinematic) {
       // Only now does the camera timeline start moving the player's viewport.
       renderTimelineOverlay();
       const timelineElapsed = elapsedTotal - introMs;
-      const { scene, elapsed: sceneElapsed } = sceneAt(cinematic, timelineElapsed);
-      await applyCamera(scene, sceneElapsed);
+      // Camera movement is intentionally handled by background.ts. The background
+      // page exists for every connected Owlbear client, ensuring players move too.
+      sceneAt(cinematic, timelineElapsed);
     }
 
     animationFrame = requestAnimationFrame(() => {
@@ -266,6 +268,7 @@ async function close() {
   currentCameraSegment = "";
   executedCueIds.clear();
   document.body.classList.remove("active");
+  document.getElementById("cinematic-root")?.classList.remove("boss-intro", "cinematic-running");
 }
 
 OBR.onReady(async () => {
