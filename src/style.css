@@ -681,3 +681,8 @@ textarea:focus {
 }
 
 .player-locked{display:grid;place-items:center;min-height:100vh;padding:24px}.player-locked-card{max-width:420px;text-align:center;padding:42px}.player-locked-card .brand-mark{margin:0 auto 16px}.player-locked-card p{opacity:.75}
+
+.cue-token { background: #6f4cc3; }
+.cue-token-fields { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cue-token-fields.hidden { display: none; }
+.cue-token-fields span { font-size: 11px; opacity: .8; white-space: nowrap; }

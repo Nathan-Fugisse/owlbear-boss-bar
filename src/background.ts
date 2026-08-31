@@ -10,13 +10,16 @@ type CueType =
   | "BOSS_HIDE"
   | "BOSS_DAMAGE"
   | "BOSS_HEAL"
-  | "CAMERA";
+  | "CAMERA"
+  | "TOKEN_SHOW"
+  | "TOKEN_HIDE";
 
 interface CinematicCue {
   id: string;
   atMs: number;
   type: CueType;
   value?: number;
+  tokenIds?: string[];
 }
 
 interface CinematicScene {
@@ -158,6 +161,15 @@ async function executeBossCue(cue: CinematicCue) {
   });
 }
 
+async function executeTokenCue(cue: CinematicCue) {
+  const ids = cue.tokenIds ?? [];
+  if (ids.length === 0) return;
+  const visible = cue.type === "TOKEN_SHOW";
+  await OBR.scene.items.updateItems(ids, (items) => {
+    for (const item of items) item.visible = visible;
+  });
+}
+
 function stopCueScheduler() {
   if (cueTimer) {
     window.clearTimeout(cueTimer);
@@ -184,10 +196,10 @@ function scheduleTimeline(active: ActiveCinematic) {
     if (active.directorId === OBR.player.id) {
       for (const item of due) {
         executedCueIds.add(item.cue.id);
-        if (
-          ["BOSS_SHOW", "BOSS_HIDE", "BOSS_DAMAGE", "BOSS_HEAL"].includes(item.cue.type)
-        ) {
+        if (["BOSS_SHOW", "BOSS_HIDE", "BOSS_DAMAGE", "BOSS_HEAL"].includes(item.cue.type)) {
           await executeBossCue(item.cue);
+        } else if (["TOKEN_SHOW", "TOKEN_HIDE"].includes(item.cue.type)) {
+          await executeTokenCue(item.cue);
         }
       }
     } else {

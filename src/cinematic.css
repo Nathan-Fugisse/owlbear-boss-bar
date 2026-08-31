@@ -8,7 +8,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #000;
+  background: transparent;
 }
 
 body {
@@ -34,16 +34,7 @@ body.active {
   transition: opacity 80ms linear;
 }
 
-#cinematic-root::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 50% 45%, rgba(255,255,255,.08), transparent 35%),
-    linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.82));
-  z-index: 2;
-  pointer-events: none;
-}
+#cinematic-root::before { content: none; }
 
 #cinematic-image {
   position: absolute;
@@ -58,11 +49,7 @@ body.active {
 .vignette {
   position: absolute;
   inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  box-shadow:
-    inset 0 0 150px rgba(0,0,0,.95),
-    inset 0 0 35px rgba(0,0,0,.9);
+  display: none;
 }
 
 .letterbox {
@@ -70,7 +57,7 @@ body.active {
   left: 0;
   right: 0;
   height: 10vh;
-  background: #000;
+  background: transparent;
   z-index: 5;
 }
 

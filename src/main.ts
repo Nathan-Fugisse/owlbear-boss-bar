@@ -27,7 +27,9 @@ export type CinematicCueType =
   | "BOSS_HIDE"
   | "BOSS_DAMAGE"
   | "BOSS_HEAL"
-  | "CAMERA";
+  | "CAMERA"
+  | "TOKEN_SHOW"
+  | "TOKEN_HIDE";
 
 export interface CinematicCue {
   id: string;
@@ -35,6 +37,7 @@ export interface CinematicCue {
   type: CinematicCueType;
   value?: number;
   camera?: CameraCue;
+  tokenIds?: string[];
 }
 
 export interface CinematicScene {
@@ -95,7 +98,6 @@ function createScene(): CinematicScene {
     cues: [
       { id: uid("cue"), atMs: 250, type: "SUBTITLE_IN" },
       { id: uid("cue"), atMs: 700, type: "TITLE_IN" },
-      { id: uid("cue"), atMs: 1300, type: "BODY_IN" },
       { id: uid("cue"), atMs: 0, type: "CAMERA", camera: { x: 0, y: 0, scale: 1 } },
       { id: uid("cue"), atMs: 3500, type: "BOSS_SHOW" },
     ],
@@ -400,6 +402,8 @@ async function initialize(): Promise<void> {
     BOSS_DAMAGE: "DAMAGE",
     BOSS_HEAL: "HEAL",
     CAMERA: "CAMERA",
+    TOKEN_SHOW: "SHOW TOKEN",
+    TOKEN_HIDE: "HIDE TOKEN",
   };
 
   const cueIcons: Record<CinematicCueType, string> = {
@@ -411,11 +415,14 @@ async function initialize(): Promise<void> {
     BOSS_DAMAGE: "−",
     BOSS_HEAL: "+",
     CAMERA: "⌖",
+    TOKEN_SHOW: "👁",
+    TOKEN_HIDE: "◉̸",
   };
 
   function cueColorClass(type: CinematicCueType): string {
     if (type.startsWith("BOSS")) return "cue-boss";
     if (type === "CAMERA") return "cue-camera";
+    if (type === "TOKEN_SHOW" || type === "TOKEN_HIDE") return "cue-token";
     return "cue-text";
   }
 
@@ -454,6 +461,7 @@ async function initialize(): Promise<void> {
   function cueRow(scene: CinematicScene, cue: CinematicCue): string {
     const camera = cue.camera ?? { x: 0, y: 0, scale: 1 };
     const value = cue.value ?? 10;
+    const tokenIds = cue.tokenIds ?? [];
     return `
       <div class="cue-row" data-cue="${cue.id}">
         <span class="cue-dot ${cueColorClass(cue.type)}">${cueIcons[cue.type]}</span>
@@ -465,6 +473,10 @@ async function initialize(): Promise<void> {
         <label class="cue-camera-fields ${cue.type === "CAMERA" ? "" : "hidden"}"><span>X</span><input class="cue-x" type="number" step="1" value="${camera.x}" /></label>
         <label class="cue-camera-fields ${cue.type === "CAMERA" ? "" : "hidden"}"><span>Y</span><input class="cue-y" type="number" step="1" value="${camera.y}" /></label>
         <label class="cue-camera-fields ${cue.type === "CAMERA" ? "" : "hidden"}"><span>ZOOM</span><input class="cue-scale" type="number" min=".05" step=".05" value="${camera.scale}" /></label>
+        <div class="cue-token-fields ${cue.type === "TOKEN_SHOW" || cue.type === "TOKEN_HIDE" ? "" : "hidden"}">
+          <span>${tokenIds.length} selected token${tokenIds.length === 1 ? "" : "s"}</span>
+          <button class="cue-select-tokens ghost" type="button">USE CURRENT SELECTION</button>
+        </div>
         <button class="cue-delete danger" type="button">×</button>
       </div>
     `;
@@ -477,6 +489,7 @@ async function initialize(): Promise<void> {
     const xInput = row.querySelector<HTMLInputElement>(".cue-x")!;
     const yInput = row.querySelector<HTMLInputElement>(".cue-y")!;
     const scaleInput = row.querySelector<HTMLInputElement>(".cue-scale")!;
+    const selectTokensButton = row.querySelector<HTMLButtonElement>(".cue-select-tokens");
 
     const refresh = () => {
       renderSceneEditor();
@@ -486,6 +499,7 @@ async function initialize(): Promise<void> {
     typeSelect.addEventListener("change", () => {
       cue.type = typeSelect.value as CinematicCueType;
       if (cue.type === "CAMERA" && !cue.camera) cue.camera = { x: 0, y: 0, scale: 1 };
+      if ((cue.type === "TOKEN_SHOW" || cue.type === "TOKEN_HIDE") && !cue.tokenIds) cue.tokenIds = [];
       refresh();
     });
     atInput.addEventListener("input", () => {
@@ -505,6 +519,23 @@ async function initialize(): Promise<void> {
     xInput.addEventListener("input", updateCameraCue);
     yInput.addEventListener("input", updateCameraCue);
     scaleInput.addEventListener("input", updateCameraCue);
+    selectTokensButton?.addEventListener("click", async () => {
+      try {
+        const selection = (await OBR.player.getSelection()) ?? [];
+        if (selection.length === 0) {
+          setStatus("Select one or more tokens on the map first.", true);
+          return;
+        }
+        cue.tokenIds = [...selection];
+        setStatus(`${selection.length} token${selection.length === 1 ? "" : "s"} assigned to this event.`);
+        renderSceneEditor();
+        renderMasterTimeline();
+      } catch (error) {
+        console.error(error);
+        setStatus("Could not read the current token selection.", true);
+      }
+    });
+
     row.querySelector<HTMLButtonElement>(".cue-delete")!.addEventListener("click", () => {
       scene.cues = scene.cues.filter((item) => item.id !== cue.id);
       refresh();
@@ -571,7 +602,7 @@ async function initialize(): Promise<void> {
             <div class="cue-track"></div>
             <div class="cue-rows">${[...(scene.cues ?? [])].sort((a,b) => a.atMs-b.atMs).map((cue) => cueRow(scene, cue)).join("")}</div>
           </div>
-          <p class="hint">Text events reveal the title, subtitle or dialogue. Boss events change the shared Boss Bar. Camera events move every player's viewport.</p>
+          <p class="hint">Camera events move every player's viewport. Token events show or hide the selected scene tokens for everyone.</p>
         </div>
 
         <div class="form-section">

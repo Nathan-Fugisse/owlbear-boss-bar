@@ -111,19 +111,16 @@ function opacityAfterCue(elapsed: number, cueTime: number, ramp = 280): number {
 
 function renderScene(scene: CinematicScene, elapsed: number) {
   const root = document.getElementById("cinematic-root")!;
-  root.style.background = scene.background || "#050505";
+  root.style.background = "transparent";
 
   const image = document.getElementById("cinematic-image") as HTMLImageElement;
   const subtitle = document.getElementById("cinematic-subtitle")!;
   const title = document.getElementById("cinematic-title")!;
 
-  if (scene.imageUrl) {
-    if (image.src !== scene.imageUrl) image.src = scene.imageUrl;
-    image.style.display = "block";
-  } else {
-    image.removeAttribute("src");
-    image.style.display = "none";
-  }
+  // Keep the cinematic overlay transparent so the actual Owlbear scene and the
+  // camera movement remain visible to players.
+  image.removeAttribute("src");
+  image.style.display = "none";
 
   subtitle.textContent = scene.subtitle || "";
   title.textContent = scene.title || "";
@@ -150,7 +147,9 @@ function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
-function lerp(a: number, b: number, t: number): number { return a + (b - a) * t; }
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
 
 async function applyCamera(scene: CinematicScene, elapsed: number) {
   const keys = (scene.cues ?? [])
@@ -159,46 +158,37 @@ async function applyCamera(scene: CinematicScene, elapsed: number) {
 
   if (keys.length === 0) return;
 
-  // Before the first keyframe, place the camera at the first marked point.
-  if (elapsed < keys[0].atMs) {
-    const first = keys[0].camera!;
-    const segment = `${scene.id}:initial`;
-    if (segment !== currentCameraSegment) {
-      currentCameraSegment = segment;
-      currentCameraKey = segment;
-      await OBR.viewport.animateTo({ position: { x: first.x, y: first.y }, scale: first.scale });
-    }
-    return;
-  }
-
-  let fromIndex = keys.length - 1;
-  for (let i = 0; i < keys.length - 1; i += 1) {
-    if (elapsed >= keys[i].atMs && elapsed < keys[i + 1].atMs) {
-      fromIndex = i;
-      break;
-    }
-  }
-
-  const from = keys[fromIndex];
-  const to = keys[Math.min(fromIndex + 1, keys.length - 1)];
-  const segment = `${scene.id}:${from.id}:${to.id}`;
-
-  // Start one viewport animation per keyframe segment. Calling animateTo every
-  // animation frame restarts the Owlbear animation and prevents the camera from
-  // ever reaching the marked points.
-  if (segment === currentCameraSegment) return;
-  currentCameraSegment = segment;
-
-  const target = to.camera!;
-  const duration = Math.max(0, to.atMs - from.atMs);
-  if (from === to || duration === 0) {
-    await OBR.viewport.animateTo({ position: { x: target.x, y: target.y }, scale: target.scale });
+  let target = keys[0].camera!;
+  if (elapsed >= keys[keys.length - 1].atMs) {
+    target = keys[keys.length - 1].camera!;
   } else {
-    await OBR.viewport.animateTo(
-      { position: { x: target.x, y: target.y }, scale: target.scale },
-      { duration }
-    );
+    for (let i = 0; i < keys.length - 1; i += 1) {
+      const from = keys[i];
+      const to = keys[i + 1];
+      if (elapsed >= from.atMs && elapsed < to.atMs) {
+        const span = Math.max(1, to.atMs - from.atMs);
+        const raw = Math.max(0, Math.min(1, (elapsed - from.atMs) / span));
+        const t = easeInOut(raw);
+        const a = from.camera!;
+        const b = to.camera!;
+        target = {
+          x: lerp(a.x, b.x, t),
+          y: lerp(a.y, b.y, t),
+          scale: lerp(a.scale, b.scale, t),
+        };
+        break;
+      }
+    }
   }
+
+  // The viewport API controls the current player's view. This cinematic page is
+  // opened locally for every connected extension instance by background.ts, so
+  // each player follows the same shared timeline. We use setPosition/setScale
+  // every frame instead of repeatedly restarting animateTo().
+  await Promise.all([
+    OBR.viewport.setPosition({ x: target.x, y: target.y }),
+    OBR.viewport.setScale(target.scale),
+  ]);
 }
 
 async function play(active: ActiveCinematic) {
