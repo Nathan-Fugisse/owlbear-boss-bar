@@ -239,18 +239,26 @@ function scheduleCameraForEveryone(active: ActiveCinematic) {
 
   cameraRunningNonce = active.nonce;
 
-  const tick = async () => {
+  // Keep only one viewport update in flight. Calling the Owlbear API faster
+  // than it can process messages causes a queue, which was the source of the
+  // visible "stepping" / stutter in the camera.
+  let updateInFlight = false;
+  let rafId = 0;
+
+  const stop = () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    stopCameraScheduler();
+  };
+
+  const frame = () => {
     if (cameraRunningNonce !== active.nonce) return;
 
     const elapsed = Date.now() - active.startedAt;
-    if (elapsed < introDuration(active)) {
-      cameraTimer = window.setTimeout(() => void tick(), 30);
-      return;
-    }
-
     const totalDuration = cinematicDuration(active);
+
     if (elapsed > totalDuration + 100) {
-      stopCameraScheduler();
+      stop();
       return;
     }
 
@@ -267,7 +275,11 @@ function scheduleCameraForEveryone(active: ActiveCinematic) {
         if (elapsed >= from.atMs && elapsed < to.atMs) {
           const span = Math.max(1, to.atMs - from.atMs);
           const raw = Math.max(0, Math.min(1, (elapsed - from.atMs) / span));
-          const t = easeInOut(raw);
+          // Quintic easing has a gentler acceleration/deceleration than the
+          // previous quadratic curve, so long camera pans feel cinematic.
+          const t = raw < 0.5
+            ? 16 * raw * raw * raw * raw * raw
+            : 1 - Math.pow(-2 * raw + 2, 5) / 2;
           target = {
             x: lerp(from.camera.x, to.camera.x, t),
             y: lerp(from.camera.y, to.camera.y, t),
@@ -278,18 +290,27 @@ function scheduleCameraForEveryone(active: ActiveCinematic) {
       }
     }
 
-    try {
-      await OBR.viewport.setPosition({ x: target.x, y: target.y });
-      await OBR.viewport.setScale(target.scale);
-    } catch (error) {
-      // Do not kill the cinematic loop if one local viewport update fails.
-      console.error("RPG Boss Bar: could not move local cinematic camera", error);
+    // Do not await the viewport calls before scheduling the next animation
+    // frame. We instead skip a frame while an API update is pending, avoiding
+    // a growing IPC queue while keeping interpolation tied to the display.
+    if (!updateInFlight && elapsed >= introDuration(active)) {
+      updateInFlight = true;
+      void Promise.all([
+        OBR.viewport.setPosition({ x: target.x, y: target.y }),
+        OBR.viewport.setScale(target.scale),
+      ])
+        .catch((error) => {
+          console.error("RPG Boss Bar: could not move local cinematic camera", error);
+        })
+        .finally(() => {
+          updateInFlight = false;
+        });
     }
 
-    cameraTimer = window.setTimeout(() => void tick(), 33);
+    rafId = requestAnimationFrame(frame);
   };
 
-  void tick();
+  rafId = requestAnimationFrame(frame);
 }
 
 function stopCueScheduler() {
