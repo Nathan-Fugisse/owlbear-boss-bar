@@ -61,6 +61,7 @@ interface RoomState {
 let activeNonce = "";
 let animationFrame = 0;
 let currentCameraKey = "";
+let currentCameraSegment = "";
 const executedCueIds = new Set<string>();
 
 function getActiveFromMetadata(metadata: Record<string, unknown>): ActiveCinematic | null {
@@ -115,7 +116,6 @@ function renderScene(scene: CinematicScene, elapsed: number) {
   const image = document.getElementById("cinematic-image") as HTMLImageElement;
   const subtitle = document.getElementById("cinematic-subtitle")!;
   const title = document.getElementById("cinematic-title")!;
-  const body = document.getElementById("cinematic-body")!;
 
   if (scene.imageUrl) {
     if (image.src !== scene.imageUrl) image.src = scene.imageUrl;
@@ -127,26 +127,15 @@ function renderScene(scene: CinematicScene, elapsed: number) {
 
   subtitle.textContent = scene.subtitle || "";
   title.textContent = scene.title || "";
-  body.textContent = scene.body || "";
 
   const cues = scene.cues ?? [];
   const titleCue = cues.find((cue) => cue.type === "TITLE_IN");
   const subtitleCue = cues.find((cue) => cue.type === "SUBTITLE_IN");
-  const bodyCue = cues.find((cue) => cue.type === "BODY_IN");
-
   const titleOpacity = titleCue ? opacityAfterCue(elapsed, titleCue.atMs) : 1;
   const subtitleOpacity = subtitleCue ? opacityAfterCue(elapsed, subtitleCue.atMs) : 1;
-  const bodyOpacity = bodyCue ? opacityAfterCue(elapsed, bodyCue.atMs) : 1;
 
   subtitle.style.opacity = String(subtitleOpacity);
   title.style.opacity = String(titleOpacity);
-  body.style.opacity = String(bodyOpacity);
-  if (bodyCue && elapsed >= bodyCue.atMs) {
-    const chars = Math.floor((elapsed - bodyCue.atMs) / 28);
-    body.textContent = (scene.body || "").slice(0, Math.max(0, chars));
-  } else if (bodyCue) {
-    body.textContent = "";
-  }
 
   const fadeIn = Math.min(1, elapsed / Math.max(1, scene.fadeInMs));
   const fadeOutStart = Math.max(0, scene.durationMs - scene.fadeOutMs);
@@ -168,40 +157,47 @@ async function applyCamera(scene: CinematicScene, elapsed: number) {
     .filter((cue) => cue.type === "CAMERA" && cue.camera)
     .sort((a, b) => a.atMs - b.atMs);
 
-  if (keys.length === 0) {
-    if (scene.camera) {
-      const key = `${scene.id}:legacy:${scene.camera.x}:${scene.camera.y}:${scene.camera.scale}`;
-      if (key !== currentCameraKey) {
-        currentCameraKey = key;
-        await OBR.viewport.animateTo({ position: { x: scene.camera.x, y: scene.camera.y }, scale: scene.camera.scale });
-      }
+  if (keys.length === 0) return;
+
+  // Before the first keyframe, place the camera at the first marked point.
+  if (elapsed < keys[0].atMs) {
+    const first = keys[0].camera!;
+    const segment = `${scene.id}:initial`;
+    if (segment !== currentCameraSegment) {
+      currentCameraSegment = segment;
+      currentCameraKey = segment;
+      await OBR.viewport.animateTo({ position: { x: first.x, y: first.y }, scale: first.scale });
     }
     return;
   }
 
-  const first = keys[0];
-  const last = keys[keys.length - 1];
-  let from = first;
-  let to = first;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (elapsed >= keys[i].atMs && elapsed <= keys[i + 1].atMs) { from = keys[i]; to = keys[i + 1]; break; }
-    if (elapsed > keys[i + 1].atMs) { from = keys[i + 1]; to = keys[i + 1]; }
+  let fromIndex = keys.length - 1;
+  for (let i = 0; i < keys.length - 1; i += 1) {
+    if (elapsed >= keys[i].atMs && elapsed < keys[i + 1].atMs) {
+      fromIndex = i;
+      break;
+    }
   }
-  if (elapsed < first.atMs) { from = first; to = first; }
-  if (elapsed >= last.atMs) { from = last; to = last; }
 
-  const span = Math.max(1, to.atMs - from.atMs);
-  const raw = from === to ? 1 : Math.max(0, Math.min(1, (elapsed - from.atMs) / span));
-  const t = easeInOut(raw);
-  const a = from.camera!;
-  const b = to.camera!;
-  const x = lerp(a.x, b.x, t);
-  const y = lerp(a.y, b.y, t);
-  const scale = lerp(a.scale, b.scale, t);
-  const key = `${scene.id}:${Math.round(x)}:${Math.round(y)}:${scale.toFixed(3)}`;
-  if (key !== currentCameraKey) {
-    currentCameraKey = key;
-    await OBR.viewport.animateTo({ position: { x, y }, scale });
+  const from = keys[fromIndex];
+  const to = keys[Math.min(fromIndex + 1, keys.length - 1)];
+  const segment = `${scene.id}:${from.id}:${to.id}`;
+
+  // Start one viewport animation per keyframe segment. Calling animateTo every
+  // animation frame restarts the Owlbear animation and prevents the camera from
+  // ever reaching the marked points.
+  if (segment === currentCameraSegment) return;
+  currentCameraSegment = segment;
+
+  const target = to.camera!;
+  const duration = Math.max(0, to.atMs - from.atMs);
+  if (from === to || duration === 0) {
+    await OBR.viewport.animateTo({ position: { x: target.x, y: target.y }, scale: target.scale });
+  } else {
+    await OBR.viewport.animateTo(
+      { position: { x: target.x, y: target.y }, scale: target.scale },
+      { duration }
+    );
   }
 }
 
@@ -209,6 +205,7 @@ async function play(active: ActiveCinematic) {
   clearAnimation();
   activeNonce = active.nonce;
   currentCameraKey = "";
+  currentCameraSegment = "";
   executedCueIds.clear();
 
   const cinematic = active.cinematic;
@@ -246,6 +243,7 @@ async function close() {
   clearAnimation();
   activeNonce = "";
   currentCameraKey = "";
+  currentCameraSegment = "";
   executedCueIds.clear();
   document.body.classList.remove("active");
 }

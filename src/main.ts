@@ -203,6 +203,22 @@ async function initialize(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>("#app");
   if (!app) return;
 
+  // The director/editor is GM-only. Players may still receive the cinematic
+  // through background.ts, but never get access to the control interface.
+  const getRole = (OBR.player as unknown as { getRole?: () => Promise<string> }).getRole;
+  const role = getRole ? await getRole() : "PLAYER";
+  if (role !== "GM") {
+    app.innerHTML = `
+      <main class="gm-shell player-locked">
+        <div class="panel player-locked-card">
+          <div class="brand-mark">☾</div>
+          <h1>RPG BOSS BAR</h1>
+          <p>The director controls are available to the Game Master only.</p>
+        </div>
+      </main>`;
+    return;
+  }
+
   let library = loadLibrary();
   if (!library.length) {
     library = [createCinematic()];
@@ -567,8 +583,7 @@ async function initialize(): Promise<void> {
           <div class="preview-copy">
             <div class="preview-subtitle">${escapeHtml(scene.subtitle)}</div>
             <div class="preview-title">${escapeHtml(scene.title)}</div>
-            <p>${escapeHtml(scene.body)}</p>
-          </div>
+              </div>
         </div>
 
         <div class="scene-footer">
@@ -706,7 +721,6 @@ async function initialize(): Promise<void> {
       <div class="preview-copy">
         <div class="preview-subtitle">${escapeHtml(scene.subtitle)}</div>
         <div class="preview-title">${escapeHtml(scene.title)}</div>
-        <p>${escapeHtml(scene.body)}</p>
       </div>
     `;
   }
