@@ -141,6 +141,12 @@ function renderScene(scene: CinematicScene, elapsed: number) {
   subtitle.style.opacity = String(subtitleOpacity);
   title.style.opacity = String(titleOpacity);
   body.style.opacity = String(bodyOpacity);
+  if (bodyCue && elapsed >= bodyCue.atMs) {
+    const chars = Math.floor((elapsed - bodyCue.atMs) / 28);
+    body.textContent = (scene.body || "").slice(0, Math.max(0, chars));
+  } else if (bodyCue) {
+    body.textContent = "";
+  }
 
   const fadeIn = Math.min(1, elapsed / Math.max(1, scene.fadeInMs));
   const fadeOutStart = Math.max(0, scene.durationMs - scene.fadeOutMs);
@@ -151,34 +157,51 @@ function renderScene(scene: CinematicScene, elapsed: number) {
   root.style.setProperty("--scene-opacity", String(Math.min(fadeIn, fadeOut)));
 }
 
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+function lerp(a: number, b: number, t: number): number { return a + (b - a) * t; }
+
 async function applyCamera(scene: CinematicScene, elapsed: number) {
-  const cues = (scene.cues ?? [])
-    .filter((cue) => cue.type === "CAMERA" && cue.camera && cuePassed(cue, elapsed))
+  const keys = (scene.cues ?? [])
+    .filter((cue) => cue.type === "CAMERA" && cue.camera)
     .sort((a, b) => a.atMs - b.atMs);
 
-  const cue = cues[cues.length - 1];
-
-  if (cue?.camera) {
-    const key = `${scene.id}:${cue.id}`;
-    if (key !== currentCameraKey) {
-      currentCameraKey = key;
-      await OBR.viewport.animateTo({
-        position: { x: cue.camera.x, y: cue.camera.y },
-        scale: cue.camera.scale,
-      });
+  if (keys.length === 0) {
+    if (scene.camera) {
+      const key = `${scene.id}:legacy:${scene.camera.x}:${scene.camera.y}:${scene.camera.scale}`;
+      if (key !== currentCameraKey) {
+        currentCameraKey = key;
+        await OBR.viewport.animateTo({ position: { x: scene.camera.x, y: scene.camera.y }, scale: scene.camera.scale });
+      }
     }
     return;
   }
 
-  if (scene.camera) {
-    const key = `${scene.id}:legacy:${scene.camera.x}:${scene.camera.y}:${scene.camera.scale}`;
-    if (key !== currentCameraKey) {
-      currentCameraKey = key;
-      await OBR.viewport.animateTo({
-        position: { x: scene.camera.x, y: scene.camera.y },
-        scale: scene.camera.scale,
-      });
-    }
+  const first = keys[0];
+  const last = keys[keys.length - 1];
+  let from = first;
+  let to = first;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (elapsed >= keys[i].atMs && elapsed <= keys[i + 1].atMs) { from = keys[i]; to = keys[i + 1]; break; }
+    if (elapsed > keys[i + 1].atMs) { from = keys[i + 1]; to = keys[i + 1]; }
+  }
+  if (elapsed < first.atMs) { from = first; to = first; }
+  if (elapsed >= last.atMs) { from = last; to = last; }
+
+  const span = Math.max(1, to.atMs - from.atMs);
+  const raw = from === to ? 1 : Math.max(0, Math.min(1, (elapsed - from.atMs) / span));
+  const t = easeInOut(raw);
+  const a = from.camera!;
+  const b = to.camera!;
+  const x = lerp(a.x, b.x, t);
+  const y = lerp(a.y, b.y, t);
+  const scale = lerp(a.scale, b.scale, t);
+  const key = `${scene.id}:${Math.round(x)}:${Math.round(y)}:${scale.toFixed(3)}`;
+  if (key !== currentCameraKey) {
+    currentCameraKey = key;
+    await OBR.viewport.animateTo({ position: { x, y }, scale });
   }
 }
 

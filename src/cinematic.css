@@ -133,3 +133,5 @@ body.active {
 #cinematic-body {
   transform: translateY(0);
 }
+.body { background: rgba(5,5,5,.88); border: 2px solid #f1ede4; border-radius: 2px; padding: 20px 28px; min-height: 4.5em; text-align: left; font-family: "Courier New", monospace; box-shadow: 0 0 0 6px rgba(0,0,0,.45); }
+.timeline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }

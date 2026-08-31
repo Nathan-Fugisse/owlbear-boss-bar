@@ -35,7 +35,6 @@ export interface CinematicCue {
   type: CinematicCueType;
   value?: number;
   camera?: CameraCue;
-  cues: CinematicCue[];
 }
 
 export interface CinematicScene {
@@ -49,6 +48,7 @@ export interface CinematicScene {
   fadeInMs: number;
   fadeOutMs: number;
   camera?: CameraCue;
+  cues: CinematicCue[];
 }
 
 export interface Cinematic {
@@ -530,7 +530,7 @@ async function initialize(): Promise<void> {
               <span class="eyebrow">EVENT TIMELINE</span>
               <strong>Control exactly when things happen</strong>
             </div>
-            <button id="add-cue" class="accent">+ ADD EVENT</button>
+            <div class="timeline-actions"><button id="capture-camera" class="ghost">📍 CAPTURE CURRENT CAMERA</button><button id="add-cue" class="accent">+ ADD EVENT</button></div>
           </div>
           <div id="cue-timeline" class="cue-timeline">
             <div class="cue-ruler">
@@ -616,6 +616,21 @@ async function initialize(): Promise<void> {
     bind("#camera-x", "input", updateCamera);
     bind("#camera-y", "input", updateCamera);
     bind("#camera-scale", "input", updateCamera);
+
+    document.querySelector<HTMLButtonElement>("#capture-camera")!.addEventListener("click", async () => {
+      try {
+        const [position, scale] = await Promise.all([OBR.viewport.getPosition(), OBR.viewport.getScale()]);
+        scene.cues ??= [];
+        const atMs = Math.min(Math.max(0, Math.round(scene.durationMs / 2 / 50) * 50), scene.durationMs);
+        scene.cues.push({ id: uid("cue"), atMs, type: "CAMERA", camera: { x: position.x, y: position.y, scale } });
+        setStatus(`Camera captured at ${(atMs / 1000).toFixed(2)}s`);
+        renderSceneEditor();
+        renderMasterTimeline();
+      } catch (error) {
+        console.error(error);
+        setStatus("Could not capture camera.", true);
+      }
+    });
 
     document.querySelector<HTMLButtonElement>("#add-cue")!.addEventListener("click", () => {
       scene.cues ??= [];
