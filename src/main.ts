@@ -262,8 +262,8 @@ async function initialize(): Promise<void> {
         <div class="brand">
           <div class="brand-mark">☾</div>
           <div>
-            <div class="eyebrow">DARK FANTASY EXTENSION</div>
-            <h1>RPG BOSS BAR</h1>
+            <div class="eyebrow">CINEMATIC ENGINE • GM DIRECTOR</div>
+            <h1>RPG BOSS BAR STUDIO</h1>
           </div>
         </div>
         <div class="top-actions">
@@ -317,7 +317,7 @@ async function initialize(): Promise<void> {
             <div class="section-title">
               <div>
                 <span class="eyebrow">MASTER TIMELINE</span>
-                <strong>Sequence overview</strong>
+                <strong>Sequence editor</strong>
               </div>
               <span class="hint">Click a scene to edit its cues.</span>
             </div>
@@ -472,12 +472,19 @@ async function initialize(): Promise<void> {
     });
   }
 
+  function cueTrackName(type: CinematicCueType): string {
+    if (type === "CAMERA") return "CAMERA";
+    if (type.startsWith("BOSS") || type === "TOKEN_SHOW" || type === "TOKEN_HIDE") return "ACTION";
+    return "SCREEN";
+  }
+
   function cueRow(scene: CinematicScene, cue: CinematicCue): string {
     const camera = cue.camera ?? { x: 0, y: 0, scale: 1 };
     const value = cue.value ?? 10;
     const tokenIds = cue.tokenIds ?? [];
     return `
-      <div class="cue-row" data-cue="${cue.id}">
+      <div class="cue-row ${cueColorClass(cue.type)}" data-cue="${cue.id}">
+        <span class="cue-track-name">${cueTrackName(cue.type)}</span>
         <span class="cue-dot ${cueColorClass(cue.type)}">${cueIcons[cue.type]}</span>
         <select class="cue-type">
           ${Object.entries(cueLabels).map(([type, label]) => `<option value="${type}" ${cue.type === type ? "selected" : ""}>${label}</option>`).join("")}
@@ -586,8 +593,8 @@ async function initialize(): Promise<void> {
     selectedSceneId = scene.id;
     scene.cues ??= [];
     sceneEditor.innerHTML = `
-      <div class="editor-scroll">
-        <div class="form-section">
+      <div class="editor-scroll studio-editor">
+        <div class="form-section scene-properties">
           <span class="eyebrow">SCENE ${String(cinematic.scenes.indexOf(scene) + 1).padStart(2, "0")}</span>
           <div class="form-grid">
             <label>Title<input id="scene-title" value="${escapeHtml(scene.title)}" /></label>
@@ -601,11 +608,11 @@ async function initialize(): Promise<void> {
           </div>
         </div>
 
-        <div class="form-section cue-section">
+        <div class="form-section cue-section studio-timeline">
           <div class="section-title">
             <div>
               <span class="eyebrow">EVENT TIMELINE</span>
-              <strong>Control exactly when things happen</strong>
+              <strong>Camera, screen, token and boss events</strong>
             </div>
             <div class="timeline-actions"><button id="capture-camera" class="ghost">📍 CAPTURE CURRENT CAMERA</button><button id="add-cue" class="accent">+ ADD EVENT</button></div>
           </div>
@@ -635,7 +642,7 @@ async function initialize(): Promise<void> {
           <p class="hint">Use map coordinates. The cue is optional; if left cleared, players keep their current view.</p>
         </div>
 
-        <div class="scene-preview" style="background:${scene.background}">
+        <div class="scene-preview studio-preview" style="background:${scene.background}">
           ${scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" />` : ""}
           <div class="preview-vignette"></div>
           <div class="preview-copy">
