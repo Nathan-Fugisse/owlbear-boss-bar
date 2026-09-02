@@ -58,6 +58,8 @@ export interface CinematicScene {
 export interface Cinematic {
   id: string;
   name: string;
+  /** Whether this cinematic is allowed to trigger Boss Bar events. */
+  showBossBar: boolean;
   scenes: CinematicScene[];
 }
 
@@ -111,6 +113,7 @@ function createCinematic(): Cinematic {
   return {
     id: uid("cinematic"),
     name: "Boss Introduction",
+    showBossBar: true,
     scenes: [createScene()],
   };
 }
@@ -120,7 +123,7 @@ function loadLibrary(): Cinematic[] {
     const raw = localStorage.getItem(CINEMATIC_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map((item) => ({ ...item, showBossBar: item?.showBossBar !== false })) : [];
   } catch {
     return [];
   }
@@ -299,6 +302,13 @@ async function initialize(): Promise<void> {
             <label>
               <span>Name</span>
               <input id="cinematic-name" type="text" />
+            </label>
+            <label class="bossbar-toggle">
+              <input id="cinematic-show-bossbar" type="checkbox" checked />
+              <span>
+                <strong>Show Boss Bar</strong>
+                <small>Allow this cutscene to trigger Boss Bar events</small>
+              </span>
             </label>
             <button id="add-scene" class="accent">+ SCENE</button>
           </div>
@@ -783,6 +793,7 @@ async function initialize(): Promise<void> {
   function render() {
     const cinematic = selectedCinematic();
     (document.querySelector<HTMLInputElement>("#cinematic-name")!).value = cinematic.name;
+    (document.querySelector<HTMLInputElement>("#cinematic-show-bossbar")!).checked = cinematic.showBossBar !== false;
     (document.querySelector<HTMLHeadingElement>("#cinematic-title")!).textContent = cinematic.name;
     renderLibrary();
     renderSceneListOnly();
@@ -809,6 +820,10 @@ async function initialize(): Promise<void> {
     selectedCinematic().name = (document.querySelector<HTMLInputElement>("#cinematic-name")!).value;
     (document.querySelector("#cinematic-title")!).textContent = selectedCinematic().name;
     renderLibrary();
+  });
+
+  document.querySelector<HTMLInputElement>("#cinematic-show-bossbar")!.addEventListener("change", () => {
+    selectedCinematic().showBossBar = (document.querySelector<HTMLInputElement>("#cinematic-show-bossbar")!).checked;
   });
 
   document.querySelector("#new-cinematic")!.addEventListener("click", () => {

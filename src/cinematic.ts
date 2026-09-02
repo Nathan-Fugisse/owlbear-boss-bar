@@ -44,6 +44,7 @@ interface CinematicScene {
 interface Cinematic {
   id: string;
   name: string;
+  showBossBar?: boolean;
   scenes: CinematicScene[];
 }
 

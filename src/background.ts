@@ -35,6 +35,8 @@ interface CinematicScene {
 }
 
 interface Cinematic {
+  /** false disables all Boss Bar cues for this cinematic */
+  showBossBar?: boolean;
   scenes: CinematicScene[];
 }
 
@@ -340,7 +342,11 @@ function scheduleTimeline(active: ActiveCinematic) {
       for (const item of due) {
         executedCueIds.add(item.cue.id);
         if (["BOSS_SHOW", "BOSS_HIDE", "BOSS_DAMAGE", "BOSS_HEAL"].includes(item.cue.type)) {
-          await executeBossCue(item.cue);
+          // A cinematic can be used purely as a cutscene. In that mode Boss Bar
+          // events are ignored without changing the cinematic timeline itself.
+          if (active.cinematic.showBossBar !== false) {
+            await executeBossCue(item.cue);
+          }
         } else if (["TOKEN_SHOW", "TOKEN_HIDE"].includes(item.cue.type)) {
           await executeTokenCue(item.cue);
         }
