@@ -498,7 +498,7 @@ async function initialize(): Promise<void> {
           <span>${tokenIds.length} selected token${tokenIds.length === 1 ? "" : "s"}</span>
           <button class="cue-select-tokens ghost" type="button">USE CURRENT SELECTION</button>
         </div>
-        <button class="cue-delete danger" type="button">×</button>
+        <button class="cue-delete danger" type="button" title="Delete event" aria-label="Delete event">DELETE</button>
       </div>
     `;
   }
@@ -557,9 +557,15 @@ async function initialize(): Promise<void> {
       }
     });
 
-    row.querySelector<HTMLButtonElement>(".cue-delete")!.addEventListener("click", () => {
-      scene.cues = scene.cues.filter((item) => item.id !== cue.id);
-      refresh();
+    row.querySelector<HTMLButtonElement>(".cue-delete")!.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const index = scene.cues.findIndex((item) => item.id === cue.id);
+      if (index === -1) return;
+      scene.cues.splice(index, 1);
+      setStatus(`Deleted ${cueLabels[cue.type]} event.`);
+      renderSceneEditor();
+      renderMasterTimeline();
     });
   }
 
