@@ -1,0 +1,119 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
+  pointer-events: none;
+  user-select: none;
+}
+
+#intro-screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: #000;
+  color: #eee;
+  font-family: Georgia, "Times New Roman", serif;
+  overflow: hidden;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.3) 65%, #000 100%);
+}
+
+.intro-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  text-shadow: 0 3px 8px #000;
+}
+
+#intro-subtitle {
+  margin-bottom: 12px;
+  color: #c9b89a;
+  font-size: clamp(13px, 1.35vw, 23px);
+  letter-spacing: .45em;
+  text-transform: uppercase;
+}
+
+#intro-name {
+  color: #e8e8e8;
+  font-size: clamp(36px, 4.6vw, 76px);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow:
+    0 3px 5px #000,
+    0 0 12px rgba(0,0,0,.95);
+}
+
+.intro-bottom {
+  position: absolute;
+  left: 15%;
+  right: 4%;
+  bottom: 8%;
+}
+
+.bottom-name {
+  color: #dedede;
+  font-size: clamp(18px, 1.7vw, 29px);
+  letter-spacing: .05em;
+  margin-bottom: 8px;
+  text-shadow:
+    0 2px 4px #000,
+    0 0 8px #000;
+}
+
+.gold-number {
+  position: absolute;
+  right: 0;
+  bottom: 23px;
+  color: #ddd2aa;
+  font-size: clamp(17px, 1.55vw, 26px);
+  text-shadow: 0 2px 4px #000;
+}
+
+.intro-track {
+  position: relative;
+  width: 100%;
+  height: clamp(10px, .75vw, 15px);
+  padding: 2px;
+  border: 1px solid #9a9072;
+  background: linear-gradient(#26231b, #080806);
+  box-shadow:
+    inset 0 0 5px #000,
+    0 1px 3px #000;
+}
+
+#intro-bar {
+  height: 100%;
+  width: 100%;
+  background: #8b0000;
+  transition: width .45s ease;
+  box-shadow: 0 0 12px #8b0000;
+}
+
+#intro-screen::after {
+  content: "";
+  position: absolute;
+  left: 14.7%;
+  right: 3.7%;
+  bottom: calc(8% - 5px);
+  height: 1px;
+  background: rgba(215, 196, 140, .75);
+  box-shadow: 0 0 4px rgba(215,196,140,.6);
+}

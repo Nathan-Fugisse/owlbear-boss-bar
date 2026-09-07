@@ -236,3 +236,137 @@ button:hover {
     padding: 16px;
   }
 }
+
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 18px;
+  border-bottom: 1px solid #403528;
+}
+
+.tab {
+  border: 1px solid #342b21;
+  border-bottom: 0;
+  background: #100d0a;
+  color: #756b5d;
+  padding: 12px 18px;
+}
+
+.tab.active {
+  background: #241b12;
+  color: #e2c28c;
+  border-color: #765936;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.badge {
+  border: 1px solid #4d3c27;
+  color: #a58a5d;
+  padding: 7px 9px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.intro-grid {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+.intro-preview {
+  position: relative;
+  height: 390px;
+  background: #000;
+  border: 1px solid #30271f;
+  overflow: hidden;
+}
+
+.intro-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.3) 65%, #000 100%);
+  pointer-events: none;
+}
+
+.intro-preview-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 1;
+}
+
+.intro-subtitle {
+  color: #c9b89a;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  letter-spacing: .35em;
+  text-transform: uppercase;
+  margin-bottom: 9px;
+}
+
+.intro-name {
+  color: #eee;
+  font-family: Georgia, serif;
+  font-size: 40px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 3px 6px #000;
+}
+
+.intro-preview-bottom {
+  position: absolute;
+  left: 11%;
+  right: 4%;
+  bottom: 10%;
+  z-index: 2;
+}
+
+#intro-preview-name-bottom {
+  color: #ddd;
+  font-family: Georgia, serif;
+  font-size: 17px;
+  letter-spacing: .04em;
+  margin-bottom: 7px;
+  text-shadow: 0 2px 5px #000;
+}
+
+.intro-preview-line {
+  height: 10px;
+  padding: 2px;
+  border: 1px solid #81765a;
+  background: #090908;
+}
+
+#intro-preview-bar {
+  width: 100%;
+  height: 100%;
+  background: #8b0000;
+}
+
+@media (max-width: 800px) {
+  .intro-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .intro-grid .wide {
+    grid-column: 1 / -1;
+  }
+}

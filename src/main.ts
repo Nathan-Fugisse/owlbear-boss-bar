@@ -18,8 +18,17 @@ interface BossData {
   damageEvents?: DamageEvent[];
 }
 
+interface IntroData {
+  visible: boolean;
+  name: string;
+  subtitle: string;
+  duration: number;
+  color: string;
+}
+
 interface RoomState {
   boss?: BossData;
+  intro?: IntroData;
 }
 
 const defaultBoss: BossData = {
@@ -31,43 +40,30 @@ const defaultBoss: BossData = {
   damageEvents: [],
 };
 
+const defaultIntro: IntroData = {
+  visible: false,
+  name: "REI DO GADO",
+  subtitle: "",
+  duration: 8,
+  color: "#8B0000",
+};
+
 async function getState(): Promise<RoomState> {
   const metadata = await OBR.room.getMetadata();
   return (metadata[EXTENSION_ID] as RoomState | undefined) ?? {};
 }
 
-async function saveBoss(boss: BossData): Promise<void> {
-  const state = await getState();
+async function saveState(state: RoomState): Promise<void> {
   await OBR.room.setMetadata({
-    [EXTENSION_ID]: {
-      ...state,
-      boss: {
-        ...boss,
-        damageEvents: (boss.damageEvents ?? []).slice(-12),
-      },
-    },
+    [EXTENSION_ID]: state,
   });
 }
 
-/**
- * Small, safe arithmetic parser.
- * Supports expressions such as:
- *   200-21
- *   179-15-8
- *   50+10
- *   200/2
- *
- * No variables, functions, letters, or arbitrary JavaScript are allowed.
- */
 function evaluateHpExpression(raw: string, fallback: number): number {
   const expression = raw.replace(/\s+/g, "");
-
   if (!expression) return fallback;
 
-  // Only numbers and + - * / ( ) are accepted.
   if (!/^[0-9+\-*/().]+$/.test(expression)) return fallback;
-
-  // Prevent malformed operator sequences and unsafe constructs.
   if (/[*/]{2,}|[+\-*/.]$|^[*/.]/.test(expression)) return fallback;
 
   try {
@@ -100,10 +96,28 @@ async function initialize() {
   if (!app) return;
 
   const role = await OBR.player.getRole();
+
   if (role !== "GM") {
-    app.innerHTML = `<main class="shell locked"><section class="panel"><h1>RPG BOSS BAR</h1><p>Os controles são exclusivos do Mestre.</p></section></main>`;
+    app.innerHTML = `
+      <main class="shell locked">
+        <section class="panel">
+          <h1>RPG BOSS BAR</h1>
+          <p>Os controles são exclusivos do Mestre.</p>
+        </section>
+      </main>`;
     return;
   }
+
+  const state = await getState();
+  let boss: BossData = {
+    ...defaultBoss,
+    ...(state.boss ?? {}),
+    damageEvents: state.boss?.damageEvents ?? [],
+  };
+  let intro: IntroData = {
+    ...defaultIntro,
+    ...(state.intro ?? {}),
+  };
 
   app.innerHTML = `
     <main class="shell">
@@ -111,64 +125,223 @@ async function initialize() {
         <div>
           <div class="eyebrow">OWLBEAR RODEO EXTENSION</div>
           <h1>RPG BOSS BAR</h1>
-          <p>Controle uma Boss Bar sincronizada para todos os jogadores.</p>
+          <p>Introdução dramática + Boss Bar sincronizadas para todos os jogadores.</p>
         </div>
         <span id="status">PRONTO</span>
       </header>
 
-      <section class="panel controls">
-        <h2>CONFIGURAÇÃO DO BOSS</h2>
-        <div class="grid">
-          <label class="wide">Nome do Boss<input id="boss-name" type="text" maxlength="80" /></label>
-          <label>HP Atual
-            <input id="current-hp" type="text" inputmode="decimal" autocomplete="off" placeholder="200-21" />
-            <small>Ex.: 200-21 → 179</small>
-          </label>
-          <label>HP Máximo<input id="max-hp" type="number" min="1" step="1" /></label>
-          <label>Cor da Barra<input id="boss-color" type="color" /></label>
-        </div>
-        <div class="actions">
-          <button id="save" class="accent">SALVAR</button>
-          <button id="show">MOSTRAR BOSS BAR</button>
-          <button id="hide" class="danger">OCULTAR</button>
-        </div>
-        <p class="damage-help">
-          Quando o HP atual diminuir, a diferença é calculada automaticamente como dano.
-          Ex.: <strong>200-21</strong> gera <strong>-21</strong> na tela de todos os jogadores por alguns instantes.
+      <nav class="tabs" aria-label="Configurações">
+        <button class="tab active" data-tab="intro">INTRODUÇÃO DO BOSS</button>
+        <button class="tab" data-tab="boss">BOSS BAR</button>
+      </nav>
+
+      <section id="tab-intro" class="tab-content active">
+        <section class="panel">
+          <div class="section-title">
+            <div>
+              <h2>APRESENTAÇÃO DO BOSS</h2>
+              <p>Uma tela dramática em tela cheia, inspirada na referência Souls-like.</p>
+            </div>
+            <span class="badge">TELA DOS JOGADORES</span>
+          </div>
+
+          <div class="grid intro-grid">
+            <label class="wide">
+              Nome do Boss
+              <input id="intro-name" type="text" maxlength="80" />
+            </label>
+
+            <label class="wide">
+              Subtítulo / Título
+              <input id="intro-subtitle" type="text" maxlength="100" placeholder="O DESTRUIDOR DE ESPÍRITOS" />
+            </label>
+
+            <label>
+              Duração (segundos)
+              <input id="intro-duration" type="number" min="1" max="60" step="1" />
+            </label>
+
+            <label>
+              Cor da barra
+              <input id="intro-color" type="color" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="intro-save" class="accent">SALVAR INTRODUÇÃO</button>
+            <button id="intro-show">MOSTRAR INTRODUÇÃO</button>
+            <button id="intro-hide" class="danger">OCULTAR</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>PRÉ-VISUALIZAÇÃO</h2>
+          <div class="intro-preview">
+            <div class="intro-preview-center">
+              <div id="intro-preview-subtitle" class="intro-subtitle">O DESTRUIDOR DE ESPÍRITOS</div>
+              <div id="intro-preview-name" class="intro-name">REI DO GADO</div>
+            </div>
+            <div class="intro-preview-bottom">
+              <div id="intro-preview-name-bottom">REI DO GADO</div>
+              <div class="intro-preview-line">
+                <div id="intro-preview-bar"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <p class="hint">
+          Ao clicar em <strong>MOSTRAR INTRODUÇÃO</strong>, a tela aparece para todos os jogadores,
+          permanece pelo tempo definido e desaparece automaticamente. Ela é independente da Boss Bar.
         </p>
       </section>
 
-      <section class="panel preview-panel">
-        <h2>PRÉ-VISUALIZAÇÃO</h2>
-        <div class="preview">
-          <div class="preview-header">
-            <div id="preview-name">EXAMPLE BOSS</div>
-            <div id="preview-value">200</div>
-          </div>
-          <div class="preview-track"><div id="preview-hp"></div></div>
-        </div>
-      </section>
+      <section id="tab-boss" class="tab-content">
+        <section class="panel controls">
+          <h2>CONFIGURAÇÃO DA BOSS BAR</h2>
+          <div class="grid">
+            <label class="wide">
+              Nome do Boss
+              <input id="boss-name" type="text" maxlength="80" />
+            </label>
 
-      <p class="hint">
-        A Boss Bar aparece acima da área inferior da tela para não cobrir os controles do Owlbear.
-        O nome fica alinhado à esquerda e o HP atual à direita, no estilo Souls-like.
-      </p>
+            <label>
+              HP Atual
+              <input id="current-hp" type="text" inputmode="decimal" autocomplete="off" placeholder="200-21" />
+              <small>Ex.: 200-21 → 179</small>
+            </label>
+
+            <label>
+              HP Máximo
+              <input id="max-hp" type="number" min="1" step="1" />
+            </label>
+
+            <label>
+              Cor da Barra
+              <input id="boss-color" type="color" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="save" class="accent">SALVAR</button>
+            <button id="show">MOSTRAR BOSS BAR</button>
+            <button id="hide" class="danger">OCULTAR</button>
+          </div>
+
+          <p class="damage-help">
+            Quando o HP atual diminuir, a diferença é calculada automaticamente como dano.
+            Ex.: <strong>200-21</strong> gera <strong>-21</strong> na tela de todos os jogadores por alguns instantes.
+          </p>
+        </section>
+
+        <section class="panel preview-panel">
+          <h2>PRÉ-VISUALIZAÇÃO</h2>
+          <div class="preview">
+            <div class="preview-header">
+              <div id="preview-name">EXAMPLE BOSS</div>
+            </div>
+            <div class="preview-track"><div id="preview-hp"></div></div>
+          </div>
+        </section>
+
+        <p class="hint">
+          A Boss Bar fica fora da área da extensão, acompanha a tela de cada jogador e foi elevada
+          para reduzir conflitos com os controles do Owlbear. O valor numérico do HP não aparece para os jogadores.
+        </p>
+      </section>
     </main>`;
 
   const status = document.querySelector<HTMLSpanElement>("#status")!;
-  const name = document.querySelector<HTMLInputElement>("#boss-name")!;
+
+  // Tabs
+  document.querySelectorAll<HTMLButtonElement>(".tab").forEach((button) => {
+    button.addEventListener("click", () => {
+      const tab = button.dataset.tab;
+      document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      button.classList.add("active");
+      document.querySelector(`#tab-${tab}`)?.classList.add("active");
+    });
+  });
+
+  // Intro controls
+  const introName = document.querySelector<HTMLInputElement>("#intro-name")!;
+  const introSubtitle = document.querySelector<HTMLInputElement>("#intro-subtitle")!;
+  const introDuration = document.querySelector<HTMLInputElement>("#intro-duration")!;
+  const introColor = document.querySelector<HTMLInputElement>("#intro-color")!;
+
+  const introPreviewName = document.querySelector<HTMLDivElement>("#intro-preview-name")!;
+  const introPreviewSubtitle = document.querySelector<HTMLDivElement>("#intro-preview-subtitle")!;
+  const introPreviewBottomName = document.querySelector<HTMLDivElement>("#intro-preview-name-bottom")!;
+  const introPreviewBar = document.querySelector<HTMLDivElement>("#intro-preview-bar")!;
+
+  const renderIntro = () => {
+    introName.value = intro.name;
+    introSubtitle.value = intro.subtitle;
+    introDuration.value = String(intro.duration);
+    introColor.value = intro.color;
+
+    introPreviewName.textContent = intro.name || "REI DO GADO";
+    introPreviewBottomName.textContent = intro.name || "REI DO GADO";
+    introPreviewSubtitle.textContent = intro.subtitle || "";
+    introPreviewSubtitle.style.display = intro.subtitle ? "block" : "none";
+    introPreviewBar.style.backgroundColor = intro.color;
+    introPreviewBar.style.boxShadow = `0 0 12px ${intro.color}`;
+  };
+
+  const readIntro = (visible = intro.visible): IntroData => {
+    const durationValue = Number(introDuration.value);
+    return {
+      visible,
+      name: introName.value.trim() || "REI DO GADO",
+      subtitle: introSubtitle.value.trim(),
+      duration: Number.isFinite(durationValue)
+        ? Math.max(1, Math.min(60, Math.round(durationValue)))
+        : intro.duration,
+      color: introColor.value || "#8B0000",
+    };
+  };
+
+  const updateIntroPreview = () => {
+    const draft = readIntro();
+    introPreviewName.textContent = draft.name;
+    introPreviewBottomName.textContent = draft.name;
+    introPreviewSubtitle.textContent = draft.subtitle;
+    introPreviewSubtitle.style.display = draft.subtitle ? "block" : "none";
+    introPreviewBar.style.backgroundColor = draft.color;
+    introPreviewBar.style.boxShadow = `0 0 12px ${draft.color}`;
+  };
+
+  [introName, introSubtitle, introDuration, introColor].forEach((input) =>
+    input.addEventListener("input", updateIntroPreview)
+  );
+
+  async function commitIntro(visible?: boolean) {
+    intro = readIntro(visible ?? intro.visible);
+    await saveState({ boss, intro });
+    status.textContent = intro.visible ? "INTRODUÇÃO ATIVA" : "INTRODUÇÃO SALVA";
+  }
+
+  document.querySelector<HTMLButtonElement>("#intro-save")!
+    .addEventListener("click", () => void commitIntro());
+
+  document.querySelector<HTMLButtonElement>("#intro-show")!
+    .addEventListener("click", () => void commitIntro(true));
+
+  document.querySelector<HTMLButtonElement>("#intro-hide")!
+    .addEventListener("click", () => void commitIntro(false));
+
+  // Boss controls
+  const bossName = document.querySelector<HTMLInputElement>("#boss-name")!;
   const current = document.querySelector<HTMLInputElement>("#current-hp")!;
   const max = document.querySelector<HTMLInputElement>("#max-hp")!;
   const color = document.querySelector<HTMLInputElement>("#boss-color")!;
+
   const previewName = document.querySelector<HTMLDivElement>("#preview-name")!;
   const previewHp = document.querySelector<HTMLDivElement>("#preview-hp")!;
-  const previewValue = document.querySelector<HTMLDivElement>("#preview-value")!;
 
-  let boss = { ...defaultBoss, ...(await getState()).boss };
-  boss.damageEvents = boss.damageEvents ?? [];
-
-  const render = () => {
-    name.value = boss.name;
+  const renderBoss = () => {
+    bossName.value = boss.name;
     current.value = String(boss.currentHp);
     max.value = String(boss.maxHp);
     color.value = boss.color;
@@ -183,85 +356,71 @@ async function initialize() {
     previewHp.style.width = `${percent}%`;
     previewHp.style.backgroundColor = boss.color;
     previewHp.style.boxShadow = `0 0 12px ${boss.color}`;
-    previewValue.textContent = String(boss.currentHp);
   };
 
-  function getInputBoss(visible = boss.visible): BossData {
+  const getInputBoss = (visible = boss.visible): BossData => {
     const maxHp = readMaxHp(max, boss.maxHp);
     const currentHp = readCurrentHp(current, boss.currentHp, maxHp);
 
     return {
-      name: name.value.trim() || "EXAMPLE BOSS",
+      name: bossName.value.trim() || "EXAMPLE BOSS",
       currentHp,
       maxHp,
       color: color.value || "#8B0000",
       visible,
       damageEvents: boss.damageEvents ?? [],
     };
-  }
-
-  const updatePreviewFromInputs = () => {
-    const maxHp = readMaxHp(max, boss.maxHp);
-    const currentHp = readCurrentHp(current, boss.currentHp, maxHp);
-
-    previewName.textContent = name.value.trim() || "EXAMPLE BOSS";
-    previewValue.textContent = String(currentHp);
-
-    const percent = Math.max(
-      0,
-      Math.min(100, (currentHp / maxHp) * 100)
-    );
-
-    previewHp.style.width = `${percent}%`;
-    previewHp.style.backgroundColor = color.value || "#8B0000";
-    previewHp.style.boxShadow = `0 0 12px ${color.value || "#8B0000"}`;
   };
 
-  [name, current, max, color].forEach((input) =>
-    input.addEventListener("input", updatePreviewFromInputs)
+  [bossName, current, max, color].forEach((input) =>
+    input.addEventListener("input", () => {
+      const draft = getInputBoss();
+      previewName.textContent = draft.name;
+      const percent = Math.max(0, Math.min(100, (draft.currentHp / draft.maxHp) * 100));
+      previewHp.style.width = `${percent}%`;
+      previewHp.style.backgroundColor = draft.color;
+      previewHp.style.boxShadow = `0 0 12px ${draft.color}`;
+    })
   );
 
-  async function commit(visible?: boolean) {
+  async function commitBoss(visible?: boolean) {
     const oldHp = boss.currentHp;
     const next = getInputBoss(visible ?? boss.visible);
-
-    // Only a decrease in HP creates a damage popup.
     const damage = Math.max(0, oldHp - next.currentHp);
 
     if (damage > 0) {
-      const event: DamageEvent = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        amount: damage,
-        createdAt: Date.now(),
-      };
-
-      next.damageEvents = [...(boss.damageEvents ?? []), event].slice(-12);
+      next.damageEvents = [
+        ...(boss.damageEvents ?? []),
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          amount: damage,
+          createdAt: Date.now(),
+        },
+      ].slice(-12);
     } else {
-      // Keep existing recent events. They will disappear automatically by age.
       next.damageEvents = boss.damageEvents ?? [];
     }
 
     boss = next;
-    await saveBoss(boss);
-    render();
+    await saveState({ boss, intro });
+    renderBoss();
 
     status.textContent = boss.visible
-      ? damage > 0
-        ? `DANO -${damage}`
-        : "BOSS BAR ATIVA"
+      ? damage > 0 ? `DANO -${damage}` : "BOSS BAR ATIVA"
       : "SALVO";
   }
 
   document.querySelector<HTMLButtonElement>("#save")!
-    .addEventListener("click", () => void commit());
+    .addEventListener("click", () => void commitBoss());
 
   document.querySelector<HTMLButtonElement>("#show")!
-    .addEventListener("click", () => void commit(true));
+    .addEventListener("click", () => void commitBoss(true));
 
   document.querySelector<HTMLButtonElement>("#hide")!
-    .addEventListener("click", () => void commit(false));
+    .addEventListener("click", () => void commitBoss(false));
 
-  render();
+  renderIntro();
+  renderBoss();
 }
 
 OBR.onReady(() => {

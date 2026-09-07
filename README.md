@@ -1,52 +1,53 @@
-# RPG Boss Bar — 1.1.0
+# RPG Boss Bar — 1.3.0
 
-Extensão para Owlbear Rodeo focada exclusivamente na Boss Bar.
+Extensão para Owlbear Rodeo com duas funções independentes:
 
-## Alterações desta versão
+1. **Introdução do Boss** — tela dramática em tela cheia.
+2. **Boss Bar** — barra persistente durante o combate.
 
-### Cálculo automático de dano
-O campo **HP Atual** agora aceita expressões simples.
+## Abas
 
-Exemplo:
+A interface do Mestre agora possui duas abas:
 
-`200-21`
-
-Ao salvar, o HP passa de **200 para 179** e a extensão calcula automaticamente:
-
-`21 de dano`
-
-Também é possível encadear danos:
-
-`200-21-15-8` → `156`
-
-### Números de dano temporários
-Cada redução de HP cria um número `-DANO` temporário na tela dos jogadores.
-
-- Dura aproximadamente 1,5 segundo.
-- Some gradualmente.
-- Vários golpes podem aparecer ao mesmo tempo.
-- Os valores são acumulados sem substituir o número anterior.
-- A informação é sincronizada pelo metadata da sala.
-
-### Visual da Boss Bar
-A barra agora segue a composição da referência Souls-like:
-
-- Nome do Boss alinhado à esquerda.
-- HP atual alinhado à direita.
-- Barra longa centralizada.
-- Barra posicionada mais acima na tela para reduzir conflitos com a interface do Owlbear.
-- O overlay continua fora da área da extensão e acompanha a tela de cada jogador.
-
-## Controles
-
-Somente o Mestre pode editar:
-
+### Introdução do Boss
+Configure:
 - Nome do Boss
-- HP Atual
-- HP Máximo
-- Cor da barra
-- Mostrar Boss Bar
-- Ocultar Boss Bar
+- Subtítulo/título
+- Duração da apresentação
+- Cor da barra decorativa
+
+**Mostrar Introdução** abre a tela para todos os jogadores e fecha automaticamente após a duração configurada.
+
+### Boss Bar
+Configure:
+- Nome
+- HP atual
+- HP máximo
+- Cor
+- Mostrar/Ocultar
+
+O campo HP Atual aceita expressões como `200-21`, calculando 179 HP e gerando um número temporário `-21` para todos os jogadores.
+
+## Tela de introdução
+
+A introdução é uma tela preta independente da Boss Bar, com:
+- nome central em destaque;
+- subtítulo opcional;
+- nome na região inferior;
+- barra decorativa inferior;
+- sem exibição numérica de HP.
+
+A barra da introdução usa o HP atual/máximo do Boss apenas para o preenchimento visual.
+
+## Boss Bar durante o combate
+
+A Boss Bar:
+- não mostra HP numérico aos jogadores;
+- mostra nome à esquerda;
+- mostra somente a barra;
+- exibe números temporários de dano;
+- aceita múltiplos danos simultâneos;
+- fica acima da interface inferior do Owlbear.
 
 ## Build
 
@@ -54,5 +55,3 @@ Somente o Mestre pode editar:
 npm install
 npm run build
 ```
-
-Os arquivos de produção são gerados em `dist/`.

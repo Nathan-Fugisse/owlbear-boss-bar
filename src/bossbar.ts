@@ -71,9 +71,7 @@ function renderBoss(boss: BossData) {
   const container = document.getElementById("boss-container");
   const name = document.getElementById("boss-name");
   const hp = document.getElementById("boss-hp");
-  const hpValue = document.getElementById("boss-hp-value");
-
-  if (!container || !name || !hp || !hpValue) return;
+  if (!container || !name || !hp) return;
 
   if (!boss.visible) {
     container.style.display = "none";
@@ -83,9 +81,7 @@ function renderBoss(boss: BossData) {
   container.style.display = "flex";
 
   name.textContent = boss.name || "EXAMPLE BOSS";
-  hpValue.textContent = String(Math.max(0, Math.round(boss.currentHp)));
-
-  const percentage =
+   const percentage =
     boss.maxHp > 0
       ? Math.max(0, Math.min(100, (boss.currentHp / boss.maxHp) * 100))
       : 0;
