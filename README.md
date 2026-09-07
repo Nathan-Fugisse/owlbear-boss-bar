@@ -1,27 +1,16 @@
-# RPG Boss Bar 1.4.0
+# RPG Boss Bar — 1.5.0
 
-Versão baseada na implementação antiga da extensão, mas sem o sistema de cutscene/timeline.
+Correção da tela de introdução do Boss.
 
-## Aba Introdução do Boss
+## Correções
 
-A introdução funciona como na versão antiga:
-
-- Você informa uma **URL de imagem**.
-- A imagem cobre a tela inteira.
-- O Owlbear abre a introdução como overlay para todos os jogadores.
-- Nome e subtítulo são mostrados sobre a imagem.
-- A introdução desaparece automaticamente após a duração configurada.
-- **A Boss Bar é fechada enquanto a introdução está na tela.**
-- Ao terminar, a Boss Bar volta somente se ela estiver configurada como visível.
-
-## Aba Boss Bar
-
-- Nome à esquerda.
-- Barra de HP.
-- Sem HP numérico para jogadores.
-- Campo de HP aceita expressões como `200-21`.
-- A redução cria `-21` temporariamente.
-- Vários danos podem aparecer ao mesmo tempo.
-- Overlay fica acima dos controles inferiores do Owlbear.
-
-Não há timeline, câmera, tokens ou sistema de cutscene.
+- A introdução agora usa o mesmo overlay persistente da Boss Bar.
+- Todos os jogadores recebem a introdução através do metadata sincronizado da sala.
+- A Boss Bar fica escondida enquanto a introdução está ativa.
+- A imagem continua sendo configurada por URL.
+- A introdução entra com fade suave.
+- Ao terminar, entra em um fade-out de aproximadamente 1,1 segundo antes de desaparecer.
+- A Boss Bar só volta depois que o fade termina.
+- Se a introdução for encerrada manualmente, ela também faz fade-out em vez de desaparecer instantaneamente.
+- O valor numérico do HP continua invisível para os jogadores.
+- O sistema de cutscene/timeline continua removido.

@@ -31,6 +31,8 @@ interface RoomState {
   boss?: BossData;
   intro?: IntroData;
   introVisible?: boolean;
+  introPhase?: "show" | "fade";
+  introStartedAt?: number;
 }
 
 const defaultBoss: BossData = {
@@ -320,6 +322,8 @@ async function initialize() {
       boss: nextState.boss ?? boss,
       intro,
       introVisible: show,
+      introPhase: show ? "show" : undefined,
+      introStartedAt: show ? Date.now() : undefined,
     });
 
     status.textContent = show ? "INTRODUÇÃO ATIVA" : "INTRODUÇÃO SALVA";
@@ -334,7 +338,16 @@ async function initialize() {
   document.querySelector<HTMLButtonElement>("#intro-hide")!
     .addEventListener("click", async () => {
       const currentState = await getState();
-      await saveState({ ...currentState, intro: { ...intro, }, introVisible: false });
+      if (currentState.introVisible) {
+        await saveState({
+          ...currentState,
+          intro: { ...intro },
+          introVisible: true,
+          introPhase: "fade",
+        });
+      } else {
+        await saveState({ ...currentState, intro: { ...intro }, introVisible: false });
+      }
       status.textContent = "INTRODUÇÃO ENCERRADA";
     });
 

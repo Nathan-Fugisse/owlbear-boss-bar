@@ -7,13 +7,26 @@
   <link rel="stylesheet" href="/src/bossbar.css" />
 </head>
 <body>
-  <div id="boss-container">
+  <div id="intro-container" aria-hidden="true">
+    <img id="intro-image" alt="" />
+    <div class="intro-vignette"></div>
+    <div class="letterbox top"></div>
+    <div class="letterbox bottom"></div>
+    <section class="intro-copy">
+      <div id="intro-subtitle" class="intro-subtitle"></div>
+      <div id="intro-name" class="intro-title"></div>
+      <div class="intro-rule"></div>
+    </section>
+  </div>
+
+  <div id="boss-container" aria-hidden="true">
     <div id="boss-header">
       <div id="boss-name">EXAMPLE BOSS</div>
     </div>
     <div id="boss-bar"><div id="boss-hp"></div></div>
     <div id="damage-layer" aria-hidden="true"></div>
   </div>
+
   <script type="module" src="/src/bossbar.ts"></script>
 </body>
 </html>

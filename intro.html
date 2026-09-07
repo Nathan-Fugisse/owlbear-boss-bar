@@ -4,20 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Boss Introduction</title>
-  <link rel="stylesheet" href="/src/intro.css" />
+  <link rel="stylesheet" href="/src/bossbar.css" />
 </head>
 <body>
-  <div id="intro-root">
+  <div id="intro-container" class="intro-visible">
     <img id="intro-image" alt="" />
-    <div class="vignette"></div>
+    <div class="intro-vignette"></div>
     <div class="letterbox top"></div>
     <div class="letterbox bottom"></div>
     <section class="intro-copy">
-      <div id="intro-subtitle" class="subtitle"></div>
-      <div id="intro-name" class="title"></div>
-      <div class="rule"></div>
+      <div id="intro-subtitle" class="intro-subtitle"></div>
+      <div id="intro-name" class="intro-title"></div>
+      <div class="intro-rule"></div>
     </section>
   </div>
-  <script type="module" src="/src/intro.ts"></script>
+  <script type="module" src="/src/bossbar.ts"></script>
 </body>
 </html>
