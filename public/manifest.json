@@ -1,8 +1,8 @@
 {
   "name": "RPG Boss Bar",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "manifest_version": 1,
-  "description": "Boss Bar e tela de introdução de Boss sincronizadas para Owlbear Rodeo.",
+  "description": "Boss Bar Souls-like com tela de introdução por imagem URL. Sem sistema de cutscene.",
   "author": "Nathan Fugisse",
   "icon": "/icon.svg",
   "background_url": "/background.html",
@@ -10,7 +10,7 @@
     "title": "Boss Bar",
     "icon": "/icon.svg",
     "popover": "/",
-    "width": 700,
-    "height": 560
+    "width": 1000,
+    "height": 820
   }
 }

@@ -1,30 +1,23 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Boss Introduction</title>
-    <link rel="stylesheet" href="/src/intro.css" />
-  </head>
-  <body>
-    <main id="intro-screen">
-      <div class="vignette"></div>
-
-      <section class="intro-center">
-        <div id="intro-subtitle"></div>
-        <div id="intro-name">REI DO GADO</div>
-      </section>
-
-      <section class="intro-bottom">
-        <div class="bottom-name" id="intro-bottom-name">REI DO GADO</div>
-        <div class="gold-number" id="intro-number"></div>
-
-        <div class="intro-track">
-          <div id="intro-bar"></div>
-        </div>
-      </section>
-    </main>
-
-    <script type="module" src="/src/intro.ts"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boss Introduction</title>
+  <link rel="stylesheet" href="/src/intro.css" />
+</head>
+<body>
+  <div id="intro-root">
+    <img id="intro-image" alt="" />
+    <div class="vignette"></div>
+    <div class="letterbox top"></div>
+    <div class="letterbox bottom"></div>
+    <section class="intro-copy">
+      <div id="intro-subtitle" class="subtitle"></div>
+      <div id="intro-name" class="title"></div>
+      <div class="rule"></div>
+    </section>
+  </div>
+  <script type="module" src="/src/intro.ts"></script>
+</body>
 </html>

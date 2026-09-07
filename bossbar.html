@@ -1,24 +1,19 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Boss Bar</title>
-    <link rel="stylesheet" href="/src/bossbar.css" />
-  </head>
-  <body>
-    <div id="boss-container">
-      <div id="boss-header">
-        <div id="boss-name">EXAMPLE BOSS</div>
-      </div>
-
-      <div id="boss-bar">
-        <div id="boss-hp"></div>
-      </div>
-
-      <div id="damage-layer" aria-hidden="true"></div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPG Boss Bar</title>
+  <link rel="stylesheet" href="/src/bossbar.css" />
+</head>
+<body>
+  <div id="boss-container">
+    <div id="boss-header">
+      <div id="boss-name">EXAMPLE BOSS</div>
     </div>
-
-    <script type="module" src="/src/bossbar.ts"></script>
-  </body>
+    <div id="boss-bar"><div id="boss-hp"></div></div>
+    <div id="damage-layer" aria-hidden="true"></div>
+  </div>
+  <script type="module" src="/src/bossbar.ts"></script>
+</body>
 </html>

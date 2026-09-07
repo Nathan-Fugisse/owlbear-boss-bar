@@ -2,9 +2,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   server: {
-    cors: {
-      origin: "https://www.owlbear.rodeo",
-    },
+    cors: { origin: "https://www.owlbear.rodeo" },
   },
   build: {
     rollupOptions: {
@@ -12,6 +10,7 @@ export default defineConfig({
         main: "index.html",
         background: "background.html",
         bossbar: "bossbar.html",
+        intro: "intro.html",
       },
     },
   },

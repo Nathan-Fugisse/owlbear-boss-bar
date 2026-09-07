@@ -1,57 +1,27 @@
-# RPG Boss Bar — 1.3.0
+# RPG Boss Bar 1.4.0
 
-Extensão para Owlbear Rodeo com duas funções independentes:
+Versão baseada na implementação antiga da extensão, mas sem o sistema de cutscene/timeline.
 
-1. **Introdução do Boss** — tela dramática em tela cheia.
-2. **Boss Bar** — barra persistente durante o combate.
+## Aba Introdução do Boss
 
-## Abas
+A introdução funciona como na versão antiga:
 
-A interface do Mestre agora possui duas abas:
+- Você informa uma **URL de imagem**.
+- A imagem cobre a tela inteira.
+- O Owlbear abre a introdução como overlay para todos os jogadores.
+- Nome e subtítulo são mostrados sobre a imagem.
+- A introdução desaparece automaticamente após a duração configurada.
+- **A Boss Bar é fechada enquanto a introdução está na tela.**
+- Ao terminar, a Boss Bar volta somente se ela estiver configurada como visível.
 
-### Introdução do Boss
-Configure:
-- Nome do Boss
-- Subtítulo/título
-- Duração da apresentação
-- Cor da barra decorativa
+## Aba Boss Bar
 
-**Mostrar Introdução** abre a tela para todos os jogadores e fecha automaticamente após a duração configurada.
+- Nome à esquerda.
+- Barra de HP.
+- Sem HP numérico para jogadores.
+- Campo de HP aceita expressões como `200-21`.
+- A redução cria `-21` temporariamente.
+- Vários danos podem aparecer ao mesmo tempo.
+- Overlay fica acima dos controles inferiores do Owlbear.
 
-### Boss Bar
-Configure:
-- Nome
-- HP atual
-- HP máximo
-- Cor
-- Mostrar/Ocultar
-
-O campo HP Atual aceita expressões como `200-21`, calculando 179 HP e gerando um número temporário `-21` para todos os jogadores.
-
-## Tela de introdução
-
-A introdução é uma tela preta independente da Boss Bar, com:
-- nome central em destaque;
-- subtítulo opcional;
-- nome na região inferior;
-- barra decorativa inferior;
-- sem exibição numérica de HP.
-
-A barra da introdução usa o HP atual/máximo do Boss apenas para o preenchimento visual.
-
-## Boss Bar durante o combate
-
-A Boss Bar:
-- não mostra HP numérico aos jogadores;
-- mostra nome à esquerda;
-- mostra somente a barra;
-- exibe números temporários de dano;
-- aceita múltiplos danos simultâneos;
-- fica acima da interface inferior do Owlbear.
-
-## Build
-
-```bash
-npm install
-npm run build
-```
+Não há timeline, câmera, tokens ou sistema de cutscene.

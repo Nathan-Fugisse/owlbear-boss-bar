@@ -3,66 +3,53 @@ import OBR from "@owlbear-rodeo/sdk";
 const EXTENSION_ID = "com.nathan.rpg-boss-bar";
 
 interface IntroData {
-  visible: boolean;
   name: string;
   subtitle: string;
-  duration: number;
-  color: string;
-}
-
-interface BossData {
-  name: string;
-  currentHp: number;
-  maxHp: number;
-  color: string;
-  visible: boolean;
+  imageUrl: string;
+  durationMs: number;
+  background: string;
 }
 
 interface RoomState {
-  boss?: BossData;
   intro?: IntroData;
+  introVisible?: boolean;
 }
 
-async function load() {
+async function render() {
   const metadata = await OBR.room.getMetadata();
   const state = metadata[EXTENSION_ID] as RoomState | undefined;
-
-  const intro = state?.intro;
-  const boss = state?.boss;
-
-  const screen = document.getElementById("intro-screen")!;
+  const root = document.getElementById("intro-root")!;
+  const image = document.getElementById("intro-image") as HTMLImageElement;
   const subtitle = document.getElementById("intro-subtitle")!;
   const name = document.getElementById("intro-name")!;
-  const bottomName = document.getElementById("intro-bottom-name")!;
-  const bar = document.getElementById("intro-bar")!;
 
-  if (!intro?.visible) {
-    screen.style.display = "none";
+  if (!state?.introVisible || !state.intro) {
+    root.classList.remove("active");
     return;
   }
 
-  screen.style.display = "block";
+  const intro = state.intro;
+  root.style.background = intro.background || "#080808";
 
-  const bossName = intro.name || boss?.name || "REI DO GADO";
-  const color = intro.color || boss?.color || "#8B0000";
+  if (intro.imageUrl) {
+    image.src = intro.imageUrl;
+    image.style.display = "block";
+  } else {
+    image.removeAttribute("src");
+    image.style.display = "none";
+  }
 
-  name.textContent = bossName;
-  bottomName.textContent = bossName;
   subtitle.textContent = intro.subtitle || "";
   subtitle.style.display = intro.subtitle ? "block" : "none";
+  name.textContent = intro.name || "BUSHI";
 
-  // Intro uses the boss's current/max HP only as a visual fill.
-  // It does not display HP numbers.
-  const current = boss?.currentHp ?? 1;
-  const max = boss?.maxHp ?? 1;
-  const percent = max > 0 ? Math.max(0, Math.min(100, current / max * 100)) : 100;
-
-  bar.style.width = `${percent}%`;
-  bar.style.backgroundColor = color;
-  bar.style.boxShadow = `0 0 12px ${color}`;
+  // Restart the old-style fade every time a new introduction is shown.
+  root.classList.remove("active");
+  void root.offsetWidth;
+  root.classList.add("active");
 }
 
 OBR.onReady(() => {
-  void load();
-  OBR.room.onMetadataChange(() => void load());
+  void render();
+  OBR.room.onMetadataChange(() => void render());
 });

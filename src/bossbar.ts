@@ -18,52 +18,35 @@ interface BossData {
   damageEvents?: DamageEvent[];
 }
 
-interface BossState {
-  boss: BossData;
+interface RoomState {
+  boss?: BossData;
 }
 
-let lastDamageSignature = "";
-let animationTimer: number | undefined;
+let refreshTimer = 0;
 
-function renderDamageEvents(events: DamageEvent[]) {
-  const damageLayer = document.getElementById("damage-layer");
-  if (!damageLayer) return;
+function renderDamage(events: DamageEvent[]) {
+  const layer = document.getElementById("damage-layer");
+  if (!layer) return;
 
   const now = Date.now();
   const recent = events
     .filter((event) => now - event.createdAt < DAMAGE_LIFETIME)
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  damageLayer.innerHTML = "";
+  layer.innerHTML = "";
 
   recent.forEach((event, index) => {
-    const element = document.createElement("div");
-    element.className = "damage-number";
-    element.textContent = `-${event.amount}`;
-    element.dataset.id = event.id;
-
-    // Several hits can exist at the same time. Spread them so they accumulate
-    // instead of replacing one another.
-    const offset = (index - (recent.length - 1) / 2) * 58;
-    element.style.setProperty("--damage-x", `${offset}px`);
-    element.style.animationDelay = `${Math.min(index * 45, 180)}ms`;
-
-    damageLayer.appendChild(element);
+    const el = document.createElement("div");
+    el.className = "damage-number";
+    el.textContent = `-${event.amount}`;
+    el.style.setProperty("--damage-x", `${(index - (recent.length - 1) / 2) * 62}px`);
+    el.style.animationDelay = `${Math.min(index * 45, 180)}ms`;
+    layer.appendChild(el);
   });
 
-  if (animationTimer !== undefined) {
-    window.clearTimeout(animationTimer);
-  }
-
-  if (recent.length > 0) {
-    const remaining = Math.max(
-      50,
-      DAMAGE_LIFETIME - (now - Math.min(...recent.map((e) => e.createdAt)))
-    );
-
-    animationTimer = window.setTimeout(() => {
-      void loadBoss();
-    }, remaining + 30);
+  if (refreshTimer) window.clearTimeout(refreshTimer);
+  if (recent.length) {
+    refreshTimer = window.setTimeout(() => void loadBoss(), DAMAGE_LIFETIME + 40);
   }
 }
 
@@ -71,6 +54,7 @@ function renderBoss(boss: BossData) {
   const container = document.getElementById("boss-container");
   const name = document.getElementById("boss-name");
   const hp = document.getElementById("boss-hp");
+
   if (!container || !name || !hp) return;
 
   if (!boss.visible) {
@@ -79,45 +63,26 @@ function renderBoss(boss: BossData) {
   }
 
   container.style.display = "flex";
-
   name.textContent = boss.name || "EXAMPLE BOSS";
-   const percentage =
-    boss.maxHp > 0
-      ? Math.max(0, Math.min(100, (boss.currentHp / boss.maxHp) * 100))
-      : 0;
 
-  hp.style.width = `${percentage}%`;
-  hp.style.backgroundColor = boss.color || "#8b0000";
+  const pct = boss.maxHp > 0
+    ? Math.max(0, Math.min(100, boss.currentHp / boss.maxHp * 100))
+    : 0;
 
-  hp.style.boxShadow = `
-    inset 0 1px 1px rgba(255,255,255,.28),
-    0 0 10px ${boss.color || "#8b0000"}
-  `;
+  hp.style.width = `${pct}%`;
+  hp.style.backgroundColor = boss.color || "#8B0000";
+  hp.style.boxShadow = `inset 0 1px 1px rgba(255,255,255,.25), 0 0 10px ${boss.color || "#8B0000"}`;
 
-  renderDamageEvents(boss.damageEvents ?? []);
+  renderDamage(boss.damageEvents ?? []);
 }
 
 async function loadBoss() {
   const metadata = await OBR.room.getMetadata();
-  const state = metadata[EXTENSION_ID] as BossState | undefined;
-
-  if (!state?.boss) return;
-
-  const events = state.boss.damageEvents ?? [];
-  const signature = events.map((event) => `${event.id}:${event.amount}`).join("|");
-
-  // If a new event arrived, restart the visual sequence naturally.
-  if (signature !== lastDamageSignature) {
-    lastDamageSignature = signature;
-  }
-
-  renderBoss(state.boss);
+  const state = metadata[EXTENSION_ID] as RoomState | undefined;
+  if (state?.boss) renderBoss(state.boss);
 }
 
-OBR.onReady(async () => {
-  await loadBoss();
-
-  OBR.room.onMetadataChange(() => {
-    void loadBoss();
-  });
+OBR.onReady(() => {
+  void loadBoss();
+  OBR.room.onMetadataChange(() => void loadBoss());
 });

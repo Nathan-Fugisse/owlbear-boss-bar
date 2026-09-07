@@ -2,6 +2,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import "./style.css";
 
 const EXTENSION_ID = "com.nathan.rpg-boss-bar";
+const INTRO_STORAGE_KEY = `${EXTENSION_ID}/intro`;
 
 interface DamageEvent {
   id: string;
@@ -15,20 +16,21 @@ interface BossData {
   maxHp: number;
   color: string;
   visible: boolean;
-  damageEvents?: DamageEvent[];
+  damageEvents: DamageEvent[];
 }
 
 interface IntroData {
-  visible: boolean;
   name: string;
   subtitle: string;
-  duration: number;
-  color: string;
+  imageUrl: string;
+  durationMs: number;
+  background: string;
 }
 
 interface RoomState {
   boss?: BossData;
   intro?: IntroData;
+  introVisible?: boolean;
 }
 
 const defaultBoss: BossData = {
@@ -41,12 +43,30 @@ const defaultBoss: BossData = {
 };
 
 const defaultIntro: IntroData = {
-  visible: false,
-  name: "REI DO GADO",
-  subtitle: "",
-  duration: 8,
-  color: "#8B0000",
+  name: "BUSHI",
+  subtitle: "O DESTRUIDOR DE ESPÍRITOS",
+  imageUrl: "",
+  durationMs: 4500,
+  background: "#080808",
 };
+
+function uid(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function loadIntro(): IntroData {
+  try {
+    const raw = localStorage.getItem(INTRO_STORAGE_KEY);
+    if (!raw) return { ...defaultIntro };
+    return { ...defaultIntro, ...JSON.parse(raw) };
+  } catch {
+    return { ...defaultIntro };
+  }
+}
+
+function saveIntroLocal(intro: IntroData): void {
+  localStorage.setItem(INTRO_STORAGE_KEY, JSON.stringify(intro));
+}
 
 async function getState(): Promise<RoomState> {
   const metadata = await OBR.room.getMetadata();
@@ -61,46 +81,34 @@ async function saveState(state: RoomState): Promise<void> {
 
 function evaluateHpExpression(raw: string, fallback: number): number {
   const expression = raw.replace(/\s+/g, "");
-  if (!expression) return fallback;
-
-  if (!/^[0-9+\-*/().]+$/.test(expression)) return fallback;
+  if (!expression || !/^[0-9+\-*/().]+$/.test(expression)) return fallback;
   if (/[*/]{2,}|[+\-*/.]$|^[*/.]/.test(expression)) return fallback;
 
   try {
     const value = Function(`"use strict"; return (${expression});`)();
-    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-    return value;
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
   } catch {
     return fallback;
   }
 }
 
-function readMaxHp(input: HTMLInputElement, fallback: number): number {
-  const value = Number(input.value);
-  return Number.isFinite(value) && value > 0
-    ? Math.max(1, Math.round(value))
-    : fallback;
-}
-
-function readCurrentHp(
-  input: HTMLInputElement,
-  fallback: number,
-  maxHp: number
-): number {
-  const value = evaluateHpExpression(input.value, fallback);
-  return Math.max(0, Math.min(maxHp, Math.round(value)));
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 async function initialize() {
   const app = document.querySelector<HTMLDivElement>("#app");
   if (!app) return;
 
-  const role = await OBR.player.getRole();
-
-  if (role !== "GM") {
+  if ((await OBR.player.getRole()) !== "GM") {
     app.innerHTML = `
       <main class="shell locked">
-        <section class="panel">
+        <section class="panel locked-card">
           <h1>RPG BOSS BAR</h1>
           <p>Os controles são exclusivos do Mestre.</p>
         </section>
@@ -116,7 +124,7 @@ async function initialize() {
   };
   let intro: IntroData = {
     ...defaultIntro,
-    ...(state.intro ?? {}),
+    ...(state.intro ?? loadIntro()),
   };
 
   app.innerHTML = `
@@ -125,90 +133,88 @@ async function initialize() {
         <div>
           <div class="eyebrow">OWLBEAR RODEO EXTENSION</div>
           <h1>RPG BOSS BAR</h1>
-          <p>Introdução dramática + Boss Bar sincronizadas para todos os jogadores.</p>
+          <p>Introdução do Boss e Boss Bar, sem sistema de cutscene.</p>
         </div>
         <span id="status">PRONTO</span>
       </header>
 
-      <nav class="tabs" aria-label="Configurações">
+      <nav class="tabs">
         <button class="tab active" data-tab="intro">INTRODUÇÃO DO BOSS</button>
         <button class="tab" data-tab="boss">BOSS BAR</button>
       </nav>
 
       <section id="tab-intro" class="tab-content active">
         <section class="panel">
-          <div class="section-title">
+          <div class="section-heading">
             <div>
-              <h2>APRESENTAÇÃO DO BOSS</h2>
-              <p>Uma tela dramática em tela cheia, inspirada na referência Souls-like.</p>
+              <h2>INTRODUÇÃO DO BOSS</h2>
+              <p>Funciona como a versão antiga: uma imagem por URL ocupa a tela inteira.</p>
             </div>
-            <span class="badge">TELA DOS JOGADORES</span>
           </div>
 
           <div class="grid intro-grid">
             <label class="wide">
+              URL da imagem
+              <input id="intro-image" type="url" placeholder="https://exemplo.com/imagem-do-boss.jpg" />
+              <small>A imagem é carregada diretamente pela URL e cobre a tela.</small>
+            </label>
+
+            <label>
               Nome do Boss
-              <input id="intro-name" type="text" maxlength="80" />
-            </label>
-
-            <label class="wide">
-              Subtítulo / Título
-              <input id="intro-subtitle" type="text" maxlength="100" placeholder="O DESTRUIDOR DE ESPÍRITOS" />
+              <input id="intro-name" type="text" maxlength="100" />
             </label>
 
             <label>
-              Duração (segundos)
-              <input id="intro-duration" type="number" min="1" max="60" step="1" />
+              Subtítulo
+              <input id="intro-subtitle" type="text" maxlength="120" placeholder="O DESTRUIDOR DE ESPÍRITOS" />
             </label>
 
             <label>
-              Cor da barra
-              <input id="intro-color" type="color" />
+              Duração
+              <input id="intro-duration" type="number" min="1000" max="60000" step="500" />
+              <small>milissegundos</small>
+            </label>
+
+            <label>
+              Fundo
+              <input id="intro-background" type="color" />
             </label>
           </div>
 
           <div class="actions">
-            <button id="intro-save" class="accent">SALVAR INTRODUÇÃO</button>
-            <button id="intro-show">MOSTRAR INTRODUÇÃO</button>
-            <button id="intro-hide" class="danger">OCULTAR</button>
+            <button id="intro-save" class="accent">SALVAR</button>
+            <button id="intro-show" class="show">MOSTRAR INTRODUÇÃO</button>
+            <button id="intro-hide" class="danger">ENCERRAR INTRODUÇÃO</button>
           </div>
         </section>
 
         <section class="panel">
           <h2>PRÉ-VISUALIZAÇÃO</h2>
-          <div class="intro-preview">
-            <div class="intro-preview-center">
-              <div id="intro-preview-subtitle" class="intro-subtitle">O DESTRUIDOR DE ESPÍRITOS</div>
-              <div id="intro-preview-name" class="intro-name">REI DO GADO</div>
-            </div>
-            <div class="intro-preview-bottom">
-              <div id="intro-preview-name-bottom">REI DO GADO</div>
-              <div class="intro-preview-line">
-                <div id="intro-preview-bar"></div>
-              </div>
+          <div id="intro-preview" class="intro-preview">
+            <img id="intro-preview-image" alt="" />
+            <div class="preview-vignette"></div>
+            <div class="preview-copy">
+              <div id="intro-preview-subtitle" class="preview-subtitle"></div>
+              <div id="intro-preview-name" class="preview-title">BUSHI</div>
+              <div class="preview-rule"></div>
             </div>
           </div>
         </section>
-
-        <p class="hint">
-          Ao clicar em <strong>MOSTRAR INTRODUÇÃO</strong>, a tela aparece para todos os jogadores,
-          permanece pelo tempo definido e desaparece automaticamente. Ela é independente da Boss Bar.
-        </p>
       </section>
 
       <section id="tab-boss" class="tab-content">
-        <section class="panel controls">
+        <section class="panel">
           <h2>CONFIGURAÇÃO DA BOSS BAR</h2>
-          <div class="grid">
+          <div class="grid boss-grid">
             <label class="wide">
               Nome do Boss
-              <input id="boss-name" type="text" maxlength="80" />
+              <input id="boss-name" type="text" maxlength="100" />
             </label>
 
             <label>
               HP Atual
-              <input id="current-hp" type="text" inputmode="decimal" autocomplete="off" placeholder="200-21" />
-              <small>Ex.: 200-21 → 179</small>
+              <input id="current-hp" type="text" inputmode="decimal" placeholder="200-21" />
+              <small>Ex.: 200-21 → 179 e gera -21</small>
             </label>
 
             <label>
@@ -217,214 +223,200 @@ async function initialize() {
             </label>
 
             <label>
-              Cor da Barra
+              Cor
               <input id="boss-color" type="color" />
             </label>
           </div>
 
           <div class="actions">
-            <button id="save" class="accent">SALVAR</button>
-            <button id="show">MOSTRAR BOSS BAR</button>
-            <button id="hide" class="danger">OCULTAR</button>
+            <button id="boss-save" class="accent">SALVAR</button>
+            <button id="boss-show" class="show">MOSTRAR BOSS BAR</button>
+            <button id="boss-hide" class="danger">OCULTAR BOSS BAR</button>
           </div>
 
-          <p class="damage-help">
-            Quando o HP atual diminuir, a diferença é calculada automaticamente como dano.
-            Ex.: <strong>200-21</strong> gera <strong>-21</strong> na tela de todos os jogadores por alguns instantes.
+          <p class="help">
+            Os jogadores não veem o número do HP. Eles veem apenas o nome, a barra e o dano temporário,
+            como <strong>-21</strong>.
           </p>
         </section>
 
-        <section class="panel preview-panel">
+        <section class="panel">
           <h2>PRÉ-VISUALIZAÇÃO</h2>
-          <div class="preview">
-            <div class="preview-header">
-              <div id="preview-name">EXAMPLE BOSS</div>
-            </div>
-            <div class="preview-track"><div id="preview-hp"></div></div>
+          <div class="boss-preview">
+            <div id="preview-boss-name">EXAMPLE BOSS</div>
+            <div class="boss-preview-bar"><div id="preview-boss-hp"></div></div>
           </div>
         </section>
-
-        <p class="hint">
-          A Boss Bar fica fora da área da extensão, acompanha a tela de cada jogador e foi elevada
-          para reduzir conflitos com os controles do Owlbear. O valor numérico do HP não aparece para os jogadores.
-        </p>
       </section>
     </main>`;
 
   const status = document.querySelector<HTMLSpanElement>("#status")!;
 
-  // Tabs
   document.querySelectorAll<HTMLButtonElement>(".tab").forEach((button) => {
     button.addEventListener("click", () => {
-      const tab = button.dataset.tab;
       document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
       button.classList.add("active");
-      document.querySelector(`#tab-${tab}`)?.classList.add("active");
+      document.querySelector(`#tab-${button.dataset.tab}`)?.classList.add("active");
     });
   });
 
-  // Intro controls
+  // ---------------- INTRODUCTION ----------------
+  const introImage = document.querySelector<HTMLInputElement>("#intro-image")!;
   const introName = document.querySelector<HTMLInputElement>("#intro-name")!;
   const introSubtitle = document.querySelector<HTMLInputElement>("#intro-subtitle")!;
   const introDuration = document.querySelector<HTMLInputElement>("#intro-duration")!;
-  const introColor = document.querySelector<HTMLInputElement>("#intro-color")!;
+  const introBackground = document.querySelector<HTMLInputElement>("#intro-background")!;
 
-  const introPreviewName = document.querySelector<HTMLDivElement>("#intro-preview-name")!;
-  const introPreviewSubtitle = document.querySelector<HTMLDivElement>("#intro-preview-subtitle")!;
-  const introPreviewBottomName = document.querySelector<HTMLDivElement>("#intro-preview-name-bottom")!;
-  const introPreviewBar = document.querySelector<HTMLDivElement>("#intro-preview-bar")!;
+  const previewImage = document.querySelector<HTMLImageElement>("#intro-preview-image")!;
+  const previewName = document.querySelector<HTMLDivElement>("#intro-preview-name")!;
+  const previewSubtitle = document.querySelector<HTMLDivElement>("#intro-preview-subtitle")!;
 
   const renderIntro = () => {
+    introImage.value = intro.imageUrl;
     introName.value = intro.name;
     introSubtitle.value = intro.subtitle;
-    introDuration.value = String(intro.duration);
-    introColor.value = intro.color;
+    introDuration.value = String(intro.durationMs);
+    introBackground.value = intro.background;
 
-    introPreviewName.textContent = intro.name || "REI DO GADO";
-    introPreviewBottomName.textContent = intro.name || "REI DO GADO";
-    introPreviewSubtitle.textContent = intro.subtitle || "";
-    introPreviewSubtitle.style.display = intro.subtitle ? "block" : "none";
-    introPreviewBar.style.backgroundColor = intro.color;
-    introPreviewBar.style.boxShadow = `0 0 12px ${intro.color}`;
+    previewName.textContent = intro.name;
+    previewSubtitle.textContent = intro.subtitle;
+    previewSubtitle.style.display = intro.subtitle ? "block" : "none";
+    previewImage.style.display = intro.imageUrl ? "block" : "none";
+    previewImage.src = intro.imageUrl;
+    document.querySelector<HTMLElement>("#intro-preview")!.style.background = intro.background;
   };
 
-  const readIntro = (visible = intro.visible): IntroData => {
-    const durationValue = Number(introDuration.value);
+  const readIntro = (): IntroData => {
+    const duration = Number(introDuration.value);
     return {
-      visible,
-      name: introName.value.trim() || "REI DO GADO",
+      name: introName.value.trim() || "BUSHI",
       subtitle: introSubtitle.value.trim(),
-      duration: Number.isFinite(durationValue)
-        ? Math.max(1, Math.min(60, Math.round(durationValue)))
-        : intro.duration,
-      color: introColor.value || "#8B0000",
+      imageUrl: introImage.value.trim(),
+      durationMs: Number.isFinite(duration) ? Math.max(1000, Math.min(60000, Math.round(duration))) : 4500,
+      background: introBackground.value || "#080808",
     };
   };
 
-  const updateIntroPreview = () => {
-    const draft = readIntro();
-    introPreviewName.textContent = draft.name;
-    introPreviewBottomName.textContent = draft.name;
-    introPreviewSubtitle.textContent = draft.subtitle;
-    introPreviewSubtitle.style.display = draft.subtitle ? "block" : "none";
-    introPreviewBar.style.backgroundColor = draft.color;
-    introPreviewBar.style.boxShadow = `0 0 12px ${draft.color}`;
-  };
+  [introImage, introName, introSubtitle, introDuration, introBackground].forEach((input) => {
+    input.addEventListener("input", () => {
+      const draft = readIntro();
+      previewName.textContent = draft.name;
+      previewSubtitle.textContent = draft.subtitle;
+      previewSubtitle.style.display = draft.subtitle ? "block" : "none";
+      previewImage.style.display = draft.imageUrl ? "block" : "none";
+      if (previewImage.src !== draft.imageUrl) previewImage.src = draft.imageUrl;
+      document.querySelector<HTMLElement>("#intro-preview")!.style.background = draft.background;
+    });
+  });
 
-  [introName, introSubtitle, introDuration, introColor].forEach((input) =>
-    input.addEventListener("input", updateIntroPreview)
-  );
+  async function saveIntro(show = false) {
+    intro = readIntro();
+    saveIntroLocal(intro);
 
-  async function commitIntro(visible?: boolean) {
-    intro = readIntro(visible ?? intro.visible);
-    await saveState({ boss, intro });
-    status.textContent = intro.visible ? "INTRODUÇÃO ATIVA" : "INTRODUÇÃO SALVA";
+    const nextState = await getState();
+    await saveState({
+      ...nextState,
+      boss: nextState.boss ?? boss,
+      intro,
+      introVisible: show,
+    });
+
+    status.textContent = show ? "INTRODUÇÃO ATIVA" : "INTRODUÇÃO SALVA";
   }
 
   document.querySelector<HTMLButtonElement>("#intro-save")!
-    .addEventListener("click", () => void commitIntro());
+    .addEventListener("click", () => void saveIntro(false));
 
   document.querySelector<HTMLButtonElement>("#intro-show")!
-    .addEventListener("click", () => void commitIntro(true));
+    .addEventListener("click", () => void saveIntro(true));
 
   document.querySelector<HTMLButtonElement>("#intro-hide")!
-    .addEventListener("click", () => void commitIntro(false));
+    .addEventListener("click", async () => {
+      const currentState = await getState();
+      await saveState({ ...currentState, intro: { ...intro, }, introVisible: false });
+      status.textContent = "INTRODUÇÃO ENCERRADA";
+    });
 
-  // Boss controls
+  // ---------------- BOSS BAR ----------------
   const bossName = document.querySelector<HTMLInputElement>("#boss-name")!;
-  const current = document.querySelector<HTMLInputElement>("#current-hp")!;
-  const max = document.querySelector<HTMLInputElement>("#max-hp")!;
-  const color = document.querySelector<HTMLInputElement>("#boss-color")!;
+  const currentHp = document.querySelector<HTMLInputElement>("#current-hp")!;
+  const maxHp = document.querySelector<HTMLInputElement>("#max-hp")!;
+  const bossColor = document.querySelector<HTMLInputElement>("#boss-color")!;
 
-  const previewName = document.querySelector<HTMLDivElement>("#preview-name")!;
-  const previewHp = document.querySelector<HTMLDivElement>("#preview-hp")!;
+  const previewBossName = document.querySelector<HTMLDivElement>("#preview-boss-name")!;
+  const previewBossHp = document.querySelector<HTMLDivElement>("#preview-boss-hp")!;
 
   const renderBoss = () => {
     bossName.value = boss.name;
-    current.value = String(boss.currentHp);
-    max.value = String(boss.maxHp);
-    color.value = boss.color;
+    currentHp.value = String(boss.currentHp);
+    maxHp.value = String(boss.maxHp);
+    bossColor.value = boss.color;
+    previewBossName.textContent = boss.name;
 
-    previewName.textContent = boss.name || "EXAMPLE BOSS";
-
-    const percent =
-      boss.maxHp > 0
-        ? Math.max(0, Math.min(100, (boss.currentHp / boss.maxHp) * 100))
-        : 0;
-
-    previewHp.style.width = `${percent}%`;
-    previewHp.style.backgroundColor = boss.color;
-    previewHp.style.boxShadow = `0 0 12px ${boss.color}`;
+    const pct = boss.maxHp > 0 ? Math.max(0, Math.min(100, boss.currentHp / boss.maxHp * 100)) : 0;
+    previewBossHp.style.width = `${pct}%`;
+    previewBossHp.style.backgroundColor = boss.color;
+    previewBossHp.style.boxShadow = `0 0 12px ${boss.color}`;
   };
 
-  const getInputBoss = (visible = boss.visible): BossData => {
-    const maxHp = readMaxHp(max, boss.maxHp);
-    const currentHp = readCurrentHp(current, boss.currentHp, maxHp);
-
+  const draftBoss = (): BossData => {
+    const max = Math.max(1, Math.round(Number(maxHp.value) || boss.maxHp));
+    const hp = Math.max(0, Math.min(max, Math.round(evaluateHpExpression(currentHp.value, boss.currentHp))));
     return {
       name: bossName.value.trim() || "EXAMPLE BOSS",
-      currentHp,
-      maxHp,
-      color: color.value || "#8B0000",
-      visible,
+      currentHp: hp,
+      maxHp: max,
+      color: bossColor.value || "#8B0000",
+      visible: boss.visible,
       damageEvents: boss.damageEvents ?? [],
     };
   };
 
-  [bossName, current, max, color].forEach((input) =>
+  [bossName, currentHp, maxHp, bossColor].forEach((input) => {
     input.addEventListener("input", () => {
-      const draft = getInputBoss();
-      previewName.textContent = draft.name;
-      const percent = Math.max(0, Math.min(100, (draft.currentHp / draft.maxHp) * 100));
-      previewHp.style.width = `${percent}%`;
-      previewHp.style.backgroundColor = draft.color;
-      previewHp.style.boxShadow = `0 0 12px ${draft.color}`;
-    })
-  );
+      const draft = draftBoss();
+      previewBossName.textContent = draft.name;
+      const pct = draft.maxHp > 0 ? draft.currentHp / draft.maxHp * 100 : 0;
+      previewBossHp.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+      previewBossHp.style.backgroundColor = draft.color;
+      previewBossHp.style.boxShadow = `0 0 12px ${draft.color}`;
+    });
+  });
 
-  async function commitBoss(visible?: boolean) {
+  async function saveBoss(show = boss.visible) {
     const oldHp = boss.currentHp;
-    const next = getInputBoss(visible ?? boss.visible);
+    const next = draftBoss();
     const damage = Math.max(0, oldHp - next.currentHp);
 
     if (damage > 0) {
       next.damageEvents = [
         ...(boss.damageEvents ?? []),
-        {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          amount: damage,
-          createdAt: Date.now(),
-        },
+        { id: uid("damage"), amount: damage, createdAt: Date.now() },
       ].slice(-12);
-    } else {
-      next.damageEvents = boss.damageEvents ?? [];
     }
 
+    next.visible = show;
     boss = next;
-    await saveState({ boss, intro });
-    renderBoss();
 
-    status.textContent = boss.visible
-      ? damage > 0 ? `DANO -${damage}` : "BOSS BAR ATIVA"
-      : "SALVO";
+    const nextState = await getState();
+    await saveState({ ...nextState, boss, intro });
+    status.textContent = damage > 0 ? `DANO -${damage}` : "BOSS SALVO";
   }
 
-  document.querySelector<HTMLButtonElement>("#save")!
-    .addEventListener("click", () => void commitBoss());
+  document.querySelector<HTMLButtonElement>("#boss-save")!
+    .addEventListener("click", () => void saveBoss());
 
-  document.querySelector<HTMLButtonElement>("#show")!
-    .addEventListener("click", () => void commitBoss(true));
+  document.querySelector<HTMLButtonElement>("#boss-show")!
+    .addEventListener("click", () => void saveBoss(true));
 
-  document.querySelector<HTMLButtonElement>("#hide")!
-    .addEventListener("click", () => void commitBoss(false));
+  document.querySelector<HTMLButtonElement>("#boss-hide")!
+    .addEventListener("click", () => void saveBoss(false));
 
   renderIntro();
   renderBoss();
 }
 
 OBR.onReady(() => {
-  void initialize().catch((error) => {
-    console.error("RPG Boss Bar initialization failed", error);
-  });
+  void initialize().catch((error) => console.error("RPG Boss Bar error", error));
 });
