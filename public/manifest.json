@@ -1,8 +1,8 @@
 {
   "name": "RPG Boss Bar",
-  "version": "0.3.0",
+  "version": "1.1.0",
   "manifest_version": 1,
-  "description": "A Soulslike-inspired boss bar with a synchronized cinematic timeline editor for Owlbear Rodeo.",
+  "description": "Boss Bar sincronizada com cálculo de dano e números temporários em estilo Souls-like.",
   "author": "Nathan Fugisse",
   "icon": "/icon.svg",
   "background_url": "/background.html",
@@ -10,7 +10,7 @@
     "title": "Boss Bar",
     "icon": "/icon.svg",
     "popover": "/",
-    "width": 1000,
-    "height": 820
+    "width": 700,
+    "height": 560
   }
 }

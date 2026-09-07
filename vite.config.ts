@@ -12,7 +12,6 @@ export default defineConfig({
         main: "index.html",
         background: "background.html",
         bossbar: "bossbar.html",
-        cinematic: "cinematic.html",
       },
     },
   },

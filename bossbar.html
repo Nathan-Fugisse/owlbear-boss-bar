@@ -2,40 +2,24 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Boss Bar</title>
-
-    <link
-      rel="stylesheet"
-      href="/src/bossbar.css"
-    />
+    <link rel="stylesheet" href="/src/bossbar.css" />
   </head>
-
   <body>
-
     <div id="boss-container">
-
-      <div id="boss-name">
-        Example Boss
+      <div id="boss-header">
+        <div id="boss-name">EXAMPLE BOSS</div>
+        <div id="boss-hp-value">200</div>
       </div>
 
       <div id="boss-bar">
-
         <div id="boss-hp"></div>
-
       </div>
 
+      <div id="damage-layer" aria-hidden="true"></div>
     </div>
 
-    <script
-      type="module"
-      src="/src/bossbar.ts"
-    ></script>
-
+    <script type="module" src="/src/bossbar.ts"></script>
   </body>
 </html>

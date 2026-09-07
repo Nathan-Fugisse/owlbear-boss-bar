@@ -1,26 +1,58 @@
-# RPG Boss Bar — Cinematic Timeline v0.3.0
+# RPG Boss Bar — 1.1.0
 
-Soulslike-inspired Boss Bar and synchronized cinematic timeline editor for Owlbear Rodeo.
+Extensão para Owlbear Rodeo focada exclusivamente na Boss Bar.
 
-## Cinematic timeline
+## Alterações desta versão
 
-Each scene can contain timed events:
+### Cálculo automático de dano
+O campo **HP Atual** agora aceita expressões simples.
 
-- `TITLE IN`
-- `SUBTITLE IN`
-- `DIALOGUE IN`
-- `BOSS SHOW`
-- `BOSS HIDE`
-- `DAMAGE`
-- `HEAL`
-- `CAMERA`
+Exemplo:
 
-The GM creates the timeline, presses **PLAY FOR PLAYERS**, and the cinematic is displayed as a fullscreen Owlbear overlay. Camera events use the Owlbear viewport API.
+`200-21`
 
-## Import / Export
+Ao salvar, o HP passa de **200 para 179** e a extensão calcula automaticamente:
 
-Cinematics are exported as JSON and can be imported again from the GM interface.
+`21 de dano`
 
-## Important
+Também é possível encadear danos:
 
-Image backgrounds are stored as URLs so the exported cinematic remains small. The active cinematic is synchronized through Owlbear room metadata, so keep large external assets out of the timeline JSON.
+`200-21-15-8` → `156`
+
+### Números de dano temporários
+Cada redução de HP cria um número `-DANO` temporário na tela dos jogadores.
+
+- Dura aproximadamente 1,5 segundo.
+- Some gradualmente.
+- Vários golpes podem aparecer ao mesmo tempo.
+- Os valores são acumulados sem substituir o número anterior.
+- A informação é sincronizada pelo metadata da sala.
+
+### Visual da Boss Bar
+A barra agora segue a composição da referência Souls-like:
+
+- Nome do Boss alinhado à esquerda.
+- HP atual alinhado à direita.
+- Barra longa centralizada.
+- Barra posicionada mais acima na tela para reduzir conflitos com a interface do Owlbear.
+- O overlay continua fora da área da extensão e acompanha a tela de cada jogador.
+
+## Controles
+
+Somente o Mestre pode editar:
+
+- Nome do Boss
+- HP Atual
+- HP Máximo
+- Cor da barra
+- Mostrar Boss Bar
+- Ocultar Boss Bar
+
+## Build
+
+```bash
+npm install
+npm run build
+```
+
+Os arquivos de produção são gerados em `dist/`.
