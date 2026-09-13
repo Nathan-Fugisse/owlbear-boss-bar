@@ -229,52 +229,64 @@ async function initialize() {
           <div class="section-heading">
             <div>
               <h2>EDITOR DE CINEMÁTICA</h2>
-              <p>A cinemática começa automaticamente depois da introdução do Boss.</p>
+              <p>Primeiro a introdução do Boss. Depois, tokens e câmera executam juntos.</p>
             </div>
-            <span id="cinematic-route-status">NENHUM CAMINHO</span>
+            <span id="cinematic-route-status">PRONTO</span>
           </div>
 
           <div class="cinematic-builder">
             <div class="path-card">
               <h3>CAMINHO DO TOKEN</h3>
-              <p>Selecione um token no mapa e grave um caminho clicando nos pontos por onde ele deve passar.</p>
-              <div class="actions">
-                <button id="path-start" class="accent">GRAVAR CAMINHO</button>
-                <button id="path-finish" class="show">FINALIZAR CAMINHO</button>
-                <button id="path-clear" class="danger">LIMPAR</button>
+              <p><strong>Como gravar:</strong> selecione o token → clique em <em>MARCAR PONTO</em> → mova o token normalmente → marque o próximo ponto. Repita quantas vezes quiser.</p>
+              <div class="grid cinematic-controls">
+                <label>Nome do caminho<input id="path-name" type="text" maxlength="60" placeholder="Entrada do Boss" /></label>
+                <label>Duração do movimento (ms)<input id="path-duration" type="number" min="250" step="250" value="5000" /></label>
+                <label>Atraso após a introdução (ms)<input id="path-delay" type="number" min="0" step="100" value="0" /></label>
+                <label>Comportamento<select id="path-behavior"><option value="once">Uma vez</option><option value="loop">Repetir</option><option value="pingpong">Ida e volta</option></select></label>
+                <label class="check"><input id="path-rotate" type="checkbox" checked /> Girar o token conforme anda</label>
               </div>
-              <div class="path-info" id="path-info">Selecione um token no mapa.</div>
+              <div class="actions">
+                <button id="path-start" class="accent">NOVO CAMINHO</button>
+                <button id="path-mark" class="show" disabled>MARCAR PONTO</button>
+                <button id="path-finish" class="show" disabled>SALVAR CAMINHO</button>
+                <button id="path-clear" class="danger">CANCELAR</button>
+              </div>
+              <div class="path-info" id="path-info">Selecione um token e clique em NOVO CAMINHO.</div>
             </div>
 
-            <div class="grid">
-              <label>Nome do caminho<input id="path-name" type="text" maxlength="60" placeholder="Entrada do Boss" /></label>
-              <label>Duração (ms)<input id="path-duration" type="number" min="250" step="250" value="5000" /></label>
-              <label>Atraso (ms)<input id="path-delay" type="number" min="0" step="100" value="0" /></label>
-              <label>Comportamento
-                <select id="path-behavior"><option value="once">Uma vez</option><option value="loop">Repetir</option><option value="pingpong">Ida e volta</option></select>
-              </label>
-              <label class="check"><input id="path-rotate" type="checkbox" checked /> Girar o token conforme o movimento</label>
-            </div>
-          </div>
-        </section>
+            <section class="panel inner-panel">
+              <h2>CAMERA / VISÃO DOS JOGADORES</h2>
+              <p>O Mestre marca a posição da câmera usando a visão atual do mapa. Todos os jogadores recebem a mesma câmera durante a cinemática.</p>
+              <div class="grid cinematic-controls">
+                <label>Tempo do próximo ponto (ms)<input id="camera-at" type="number" min="0" step="250" value="0" /></label>
+                <label>Zoom atual é salvo automaticamente<input id="camera-note" type="text" value="Ponto de câmera" disabled /></label>
+              </div>
+              <div class="actions">
+                <button id="camera-mark" class="accent">MARCAR CÂMERA AQUI</button>
+                <button id="camera-follow" class="show">MARCAR SEGUIR TOKEN</button>
+                <button id="camera-clear" class="danger">LIMPAR CÂMERAS</button>
+              </div>
+              <div id="camera-info" class="path-info">Nenhum ponto de câmera salvo.</div>
+              <div id="camera-list" class="path-list"></div>
+            </section>
 
-        <section class="panel">
-          <h2>CAMINHOS SALVOS</h2>
-          <div id="path-list" class="path-list"></div>
-        </section>
+            <section class="panel inner-panel">
+              <h2>EFEITOS E EXECUÇÃO</h2>
+              <div class="grid cinematic-controls">
+                <label>Duração total da cinemática (ms)<input id="cine-duration" type="number" min="500" step="250" value="7000" /></label>
+                <label>Transição<select id="cine-transition"><option value="fade">Fade</option><option value="flash">Flash</option><option value="black">Tela preta</option><option value="none">Nenhuma</option></select></label>
+                <label>Efeito de tela<select id="cine-effect"><option value="none">Nenhum</option><option value="shake">Camera Shake</option><option value="glitch">Glitch</option><option value="flash">Flash</option><option value="vignette">Vinheta</option></select></label>
+                <label>Duração do efeito (ms)<input id="cine-effect-duration" type="number" min="100" step="100" value="700" /></label>
+              </div>
+              <div class="actions"><button id="cine-save" class="accent">SALVAR CONFIGURAÇÃO</button><button id="cine-play" class="show">EXECUTAR CINEMÁTICA</button></div>
+              <p class="help">A câmera e os movimentos começam somente depois da introdução. O controle é exclusivo do Mestre; jogadores apenas assistem.</p>
+            </section>
 
-        <section class="panel">
-          <h2>EFEITOS</h2>
-          <div class="grid">
-            <label>Transição
-              <select id="cine-transition"><option value="fade">Fade</option><option value="flash">Flash</option><option value="black">Tela preta</option><option value="none">Nenhuma</option></select>
-            </label>
-            <label>Efeito de tela
-              <select id="cine-effect"><option value="none">Nenhum</option><option value="shake">Camera Shake</option><option value="glitch">Glitch</option><option value="flash">Flash</option><option value="vignette">Vinheta</option></select>
-            </label>
-            <label>Duração do efeito (ms)<input id="cine-effect-duration" type="number" min="100" step="100" value="700" /></label>
+            <section class="panel inner-panel">
+              <h2>CAMINHOS SALVOS</h2>
+              <div id="path-list" class="path-list"></div>
+            </section>
           </div>
-          <div class="actions"><button id="cine-save" class="accent">SALVAR CONFIGURAÇÃO</button><button id="cine-play" class="show">TESTAR CINEMÁTICA</button></div>
         </section>
       </section>
 
@@ -427,171 +439,136 @@ async function initialize() {
       status.textContent = "INTRODUÇÃO ENCERRADA";
     });
 
-  // ---------------- CINEMATIC PATH EDITOR ----------------
-  let recording = false;
-  let recordingTokenId = "";
-  let recordingPoints: { x: number; y: number }[] = [];
-  let localPreviewIds: string[] = [];
+  // ---------------- CINEMATIC EDITOR ----------------
+  let recording=false;
+  let recordingTokenId="";
+  let recordingPoints:{x:number;y:number}[]=[];
+  let cameraCues:{id:string;atMs:number;mode:"point"|"follow";x?:number;y?:number;scale?:number;tokenId?:string}[]=[];
 
-  const routeStatus = document.querySelector<HTMLElement>("#cinematic-route-status")!;
-  const pathInfo = document.querySelector<HTMLElement>("#path-info")!;
-  const pathList = document.querySelector<HTMLElement>("#path-list")!;
-  const pathName = document.querySelector<HTMLInputElement>("#path-name")!;
-  const pathDuration = document.querySelector<HTMLInputElement>("#path-duration")!;
-  const pathDelay = document.querySelector<HTMLInputElement>("#path-delay")!;
-  const pathBehavior = document.querySelector<HTMLSelectElement>("#path-behavior")!;
-  const pathRotate = document.querySelector<HTMLInputElement>("#path-rotate")!;
+  const routeStatus=document.querySelector<HTMLElement>("#cinematic-route-status")!;
+  const pathInfo=document.querySelector<HTMLElement>("#path-info")!;
+  const pathList=document.querySelector<HTMLElement>("#path-list")!;
+  const pathName=document.querySelector<HTMLInputElement>("#path-name")!;
+  const pathDuration=document.querySelector<HTMLInputElement>("#path-duration")!;
+  const pathDelay=document.querySelector<HTMLInputElement>("#path-delay")!;
+  const pathBehavior=document.querySelector<HTMLSelectElement>("#path-behavior")!;
+  const pathRotate=document.querySelector<HTMLInputElement>("#path-rotate")!;
+  const markBtn=document.querySelector<HTMLButtonElement>("#path-mark")!;
+  const finishBtn=document.querySelector<HTMLButtonElement>("#path-finish")!;
+  const cameraAt=document.querySelector<HTMLInputElement>("#camera-at")!;
+  const cameraInfo=document.querySelector<HTMLElement>("#camera-info")!;
+  const cameraList=document.querySelector<HTMLElement>("#camera-list")!;
+  const cineDuration=document.querySelector<HTMLInputElement>("#cine-duration")!;
 
-  function routeFromDraft(): PatrolRoute {
-    return {
-      id: uid("route"),
-      name: pathName.value.trim() || "Caminho do Token",
-      points: recordingPoints.map((p) => ({ ...p })),
-      durationMs: Math.max(250, Number(pathDuration.value) || 5000),
-      delayMs: Math.max(0, Number(pathDelay.value) || 0),
-      loop: pathBehavior.value === "loop",
-      pingPong: pathBehavior.value === "pingpong",
-      rotate: pathRotate.checked,
-    };
+  async function getSelectedToken(){
+    const ids=(await OBR.player.getSelection())??[];
+    if(!ids.length)return null;
+    const items=await OBR.scene.items.getItems(ids);
+    return items.find((item)=>item.layer==="CHARACTER")??items[0]??null;
   }
 
-  async function getSelectedToken() {
-    const ids = (await OBR.player.getSelection()) ?? [];
-    if (!ids.length) return null;
-    const items = await OBR.scene.items.getItems(ids);
-    return items.find((item) => item.layer === "CHARACTER") ?? items[0] ?? null;
+  function routeFromDraft():PatrolRoute{
+    return {id:uid("route"),name:pathName.value.trim()||"Caminho do Token",points:recordingPoints.map(p=>({...p})),durationMs:Math.max(250,Number(pathDuration.value)||5000),delayMs:Math.max(0,Number(pathDelay.value)||0),loop:pathBehavior.value==="loop",pingPong:pathBehavior.value==="pingpong",rotate:pathRotate.checked};
   }
 
-  async function clearLocalPreview() {
-    if (!localPreviewIds.length) return;
-    try { await OBR.scene.local.deleteItems(localPreviewIds); } catch {}
-    localPreviewIds = [];
+  function setRecordingButtons(){markBtn.disabled=!recording;finishBtn.disabled=!recording;}
+
+  async function startPath(){
+    const token=await getSelectedToken();
+    if(!token){pathInfo.textContent="Selecione um token no mapa antes de criar o caminho.";return;}
+    recording=true;recordingTokenId=token.id;recordingPoints=[{...token.position}];
+    routeStatus.textContent=`GRAVANDO: ${token.name||token.id}`;
+    pathInfo.textContent="Ponto 1 marcado automaticamente. Agora mova o token e clique em MARCAR PONTO.";
+    setRecordingButtons();
   }
 
-  async function drawPreview() {
-    await clearLocalPreview();
-    if (recordingPoints.length < 2) return;
-    const lines = [];
-    for (let i = 1; i < recordingPoints.length; i += 1) {
-      const a = recordingPoints[i - 1], b = recordingPoints[i];
-      lines.push(buildLine().endPosition(b).position(a).strokeColor("#d9a441").strokeOpacity(0.85).strokeWidth(4).build());
-    }
-    await OBR.scene.local.addItems(lines);
-    localPreviewIds = lines.map((line) => line.id);
+  async function markPathPoint(){
+    if(!recording)return;
+    const token=await getSelectedToken();
+    if(!token||token.id!==recordingTokenId){pathInfo.textContent="Selecione novamente o mesmo token que está sendo gravado.";return;}
+    const last=recordingPoints.at(-1);
+    const point={...token.position};
+    if(last&&Math.hypot(point.x-last.x,point.y-last.y)<1){pathInfo.textContent="O token ainda está no último ponto. Mova-o antes de marcar o próximo.";return;}
+    recordingPoints.push(point);
+    pathInfo.textContent=`Ponto ${recordingPoints.length} marcado. Mova o token para o próximo local.`;
   }
 
-  async function setupPathTool() {
-    try {
-      await OBR.tool.create({
-        id: PATH_TOOL_ID,
-        icons: [{ icon: "/path.svg", label: "Gravar caminho" }],
-        defaultMode: PATH_MODE_ID,
-        disabled: { roles: ["PLAYER"] },
-      });
-    } catch {}
-    try {
-      await OBR.tool.createMode({
-        id: PATH_MODE_ID,
-        icons: [{ icon: "/path.svg", label: "Marcar ponto" }],
-        cursors: [{ cursor: "crosshair" }],
-        disabled: { roles: ["PLAYER"] },
-        onToolClick: (_context, event) => {
-          if (!recording) return true;
-          recordingPoints.push({ ...event.pointerPosition });
-          pathInfo.textContent = `${recordingPoints.length} ponto(s) marcado(s)`;
-          void drawPreview();
-          return false;
-        },
-        onKeyDown: (_context, event) => {
-          if (event.key === "Enter" && recording) void finishPath();
-          if (event.key === "Escape" && recording) void cancelPath();
-        },
-      });
-    } catch {}
-  }
-
-  async function startPath() {
-    const token = await getSelectedToken();
-    if (!token) { pathInfo.textContent = "Selecione um token antes de gravar."; return; }
-    recording = true;
-    recordingTokenId = token.id;
-    recordingPoints = [{ ...token.position }];
-    routeStatus.textContent = `GRAVANDO: ${token.name || token.id}`;
-    pathInfo.textContent = "Clique no mapa para adicionar pontos. Enter finaliza; Esc cancela.";
-    await OBR.tool.activateMode(PATH_TOOL_ID, PATH_MODE_ID);
-    await drawPreview();
-  }
-
-  async function cancelPath() {
-    recording = false;
-    recordingTokenId = "";
-    recordingPoints = [];
-    routeStatus.textContent = "NENHUM CAMINHO";
-    pathInfo.textContent = "Gravação cancelada.";
-    await clearLocalPreview();
-  }
-
-  async function finishPath() {
-    if (!recording) return;
-    if (recordingPoints.length < 2) { pathInfo.textContent = "Marque pelo menos dois pontos."; return; }
-    const route = routeFromDraft();
-    const tokenId = recordingTokenId;
-    await OBR.scene.items.updateItems([tokenId], (items) => {
-      for (const item of items) item.metadata[ROUTE_KEY] = route;
-    });
-    const state = await getState();
-    const cinematic: CinematicState = (state as RoomState & { cinematic?: CinematicState }).cinematic ?? {};
-    cinematic.patrols = [...(cinematic.patrols ?? []).filter((p) => p.tokenId !== tokenId), { tokenId, route }];
-    await saveState({ ...state, cinematic } as RoomState);
-    recording = false;
-    routeStatus.textContent = "CAMINHO SALVO";
-    pathInfo.textContent = `${route.name}: ${route.points.length} pontos.`;
-    await clearLocalPreview();
+  async function finishPath(){
+    if(!recording)return;
+    if(recordingPoints.length<2){pathInfo.textContent="Marque pelo menos dois pontos: ponto 1 e ponto 2.";return;}
+    const route=routeFromDraft();const tokenId=recordingTokenId;
+    const state=await getState();
+    const cine=(state as RoomState & {cinematic?:CinematicState}).cinematic??{};
+    await saveState({...state,cinematic:{...cine,patrols:[...(cine.patrols??[]).filter(p=>p.tokenId!==tokenId),{tokenId,route}]}} as RoomState);
+    recording=false;recordingTokenId="";recordingPoints=[];setRecordingButtons();
+    routeStatus.textContent="CAMINHO SALVO";pathInfo.textContent=`${route.name}: ${route.points.length} pontos. O token começará no ponto 1 quando a cinemática tocar.`;
     await renderPathList();
   }
 
-  async function renderPathList() {
-    const state = await getState();
-    const cinematic: CinematicState = (state as RoomState & { cinematic?: CinematicState }).cinematic ?? {};
-    const patrols = cinematic.patrols ?? [];
-    pathList.innerHTML = patrols.length ? patrols.map((p) => `
-      <div class="saved-path"><div><strong>${escapeHtml(p.route.name)}</strong><small>${p.route.points.length} pontos · ${Math.round(p.route.durationMs / 1000)}s</small></div><button data-remove-route="${p.tokenId}" class="danger small">REMOVER</button></div>`).join("") : '<div class="empty">Nenhum caminho salvo.</div>';
-    pathList.querySelectorAll<HTMLButtonElement>("[data-remove-route]").forEach((button) => button.addEventListener("click", async () => {
-      const tokenId = button.dataset.removeRoute!;
-      const next = await getState();
-      const cine: CinematicState = (next as RoomState & { cinematic?: CinematicState }).cinematic ?? {};
-      await saveState({ ...next, cinematic: { ...cine, patrols: (cine.patrols ?? []).filter((p) => p.tokenId !== tokenId) } } as RoomState);
-      try { await OBR.scene.items.updateItems([tokenId], (items) => { for (const item of items) delete item.metadata[ROUTE_KEY]; }); } catch {}
-      await renderPathList();
-    }));
+  function cancelPath(){recording=false;recordingTokenId="";recordingPoints=[];setRecordingButtons();routeStatus.textContent="PRONTO";pathInfo.textContent="Gravação cancelada.";}
+
+  async function renderPathList(){
+    const state=await getState();const cine=(state as RoomState & {cinematic?:CinematicState}).cinematic??{};const patrols=cine.patrols??[];
+    pathList.innerHTML=patrols.length?patrols.map(p=>`<div class="saved-path"><div><strong>${escapeHtml(p.route.name)}</strong><small>${p.route.points.length} pontos · ${Math.round(p.route.durationMs/1000)}s · ${escapeHtml(p.tokenId.slice(0,8))}</small></div><button data-remove-route="${p.tokenId}" class="danger small">REMOVER</button></div>`).join(""):'<div class="empty">Nenhum caminho salvo.</div>';
+    pathList.querySelectorAll<HTMLButtonElement>("[data-remove-route]").forEach(btn=>btn.addEventListener("click",async()=>{const tokenId=btn.dataset.removeRoute!;const next=await getState();const cine=(next as RoomState & {cinematic?:CinematicState}).cinematic??{};await saveState({...next,cinematic:{...cine,patrols:(cine.patrols??[]).filter(p=>p.tokenId!==tokenId)}} as RoomState);await renderPathList();}));
   }
 
-  document.querySelector<HTMLButtonElement>("#path-start")!.addEventListener("click", () => void startPath());
-  document.querySelector<HTMLButtonElement>("#path-finish")!.addEventListener("click", () => void finishPath());
-  document.querySelector<HTMLButtonElement>("#path-clear")!.addEventListener("click", () => void cancelPath());
-  document.querySelector<HTMLButtonElement>("#cine-save")!.addEventListener("click", async () => {
-    const state = await getState();
-    const transition = (document.querySelector<HTMLSelectElement>("#cine-transition")!).value;
-    const effect = (document.querySelector<HTMLSelectElement>("#cine-effect")!).value;
-    const effectDurationMs = Math.max(100, Number((document.querySelector<HTMLInputElement>("#cine-effect-duration")!).value) || 700);
-    await saveState({ ...state, cinematicConfig: { transition, effect, effectDurationMs } } as RoomState);
-    status.textContent = "CONFIGURAÇÃO DA CINEMÁTICA SALVA";
-  });
-  document.querySelector<HTMLButtonElement>("#cine-play")!.addEventListener("click", async () => {
-    const state = await getState();
-    const cinematic = { id: uid("cine"), name: "Cinemática", showBossBar: true, scenes: [{ id: "main", title: "", subtitle: "", body: "", imageUrl: "", background: "#000", durationMs: 7000, fadeInMs: 500, fadeOutMs: 500 }] };
-    const activeCinematic = { cinematic, introDurationMs: intro.durationMs, startedAt: Date.now(), nonce: uid("cine"), directorId: "GM" };
-    await saveState({ ...state, intro: { ...intro }, introVisible: true, introPhase: "show", introStartedAt: Date.now(), introPhaseStartedAt: Date.now(), activeCinematic } as RoomState);
-    status.textContent = "CINEMÁTICA INICIADA APÓS A INTRODUÇÃO";
-  });
-  await setupPathTool();
-  const cineState = (await getState()) as RoomState & { cinematicConfig?: { transition:string; effect:string; effectDurationMs:number } };
-  if (cineState.cinematicConfig) {
-    (document.querySelector<HTMLSelectElement>("#cine-transition")!).value = cineState.cinematicConfig.transition || "fade";
-    (document.querySelector<HTMLSelectElement>("#cine-effect")!).value = cineState.cinematicConfig.effect || "none";
-    (document.querySelector<HTMLInputElement>("#cine-effect-duration")!).value = String(cineState.cinematicConfig.effectDurationMs || 700);
+  async function markCamera(mode:"point"|"follow"){
+    const at=Math.max(0,Number(cameraAt.value)||0);
+    let cue:{id:string;atMs:number;mode:"point"|"follow";x?:number;y?:number;scale?:number;tokenId?:string};
+    if(mode==="follow"){
+      const token=await getSelectedToken();
+      if(!token){cameraInfo.textContent="Selecione o token que a câmera deve seguir.";return;}
+      cue={id:uid("cam"),atMs:at,mode,tokenId:token.id};
+      cameraInfo.textContent=`A câmera seguirá ${token.name||token.id} a partir de ${at} ms.`;
+    }else{
+      const pos=await OBR.viewport.getPosition();const scale=await OBR.viewport.getScale();
+      cue={id:uid("cam"),atMs:at,mode,x:pos.x,y:pos.y,scale};
+      cameraInfo.textContent=`Ponto de câmera marcado em ${at} ms.`;
+    }
+    cameraCues=[...cameraCues.filter(c=>c.atMs!==at),cue].sort((a,b)=>a.atMs-b.atMs);
+    await saveCameraConfig();renderCameraList();
   }
-  await renderPathList();
+
+  async function saveCameraConfig(){
+    const state=await getState();const current=(state as RoomState & {cinematicConfig?:any}).cinematicConfig??{};
+    await saveState({...state,cinematicConfig:{...current,cameraCues,durationMs:Math.max(500,Number(cineDuration.value)||7000)}} as RoomState);
+  }
+
+  function renderCameraList(){
+    cameraList.innerHTML=cameraCues.length?cameraCues.map(c=>`<div class="saved-path"><div><strong>${c.mode==="follow"?"SEGUIR TOKEN":"PONTO FIXO"}</strong><small>${c.atMs} ms${c.tokenId?` · token ${escapeHtml(c.tokenId.slice(0,8))}`:""}</small></div><button data-remove-camera="${c.id}" class="danger small">REMOVER</button></div>`).join(""):'<div class="empty">Nenhum ponto de câmera salvo.</div>';
+    cameraList.querySelectorAll<HTMLButtonElement>("[data-remove-camera]").forEach(btn=>btn.addEventListener("click",async()=>{cameraCues=cameraCues.filter(c=>c.id!==btn.dataset.removeCamera);await saveCameraConfig();renderCameraList();}));
+  }
+
+  document.querySelector<HTMLButtonElement>("#path-start")!.addEventListener("click",()=>void startPath());
+  markBtn.addEventListener("click",()=>void markPathPoint());
+  finishBtn.addEventListener("click",()=>void finishPath());
+  document.querySelector<HTMLButtonElement>("#path-clear")!.addEventListener("click",cancelPath);
+  document.querySelector<HTMLButtonElement>("#camera-mark")!.addEventListener("click",()=>void markCamera("point"));
+  document.querySelector<HTMLButtonElement>("#camera-follow")!.addEventListener("click",()=>void markCamera("follow"));
+  document.querySelector<HTMLButtonElement>("#camera-clear")!.addEventListener("click",async()=>{cameraCues=[];await saveCameraConfig();renderCameraList();cameraInfo.textContent="Câmeras limpas.";});
+
+  document.querySelector<HTMLButtonElement>("#cine-save")!.addEventListener("click",async()=>{await saveCameraConfig();const state=await getState();const config=(state as RoomState & {cinematicConfig?:any}).cinematicConfig??{};const transition=(document.querySelector<HTMLSelectElement>("#cine-transition")!).value;const effect=(document.querySelector<HTMLSelectElement>("#cine-effect")!).value;const effectDurationMs=Math.max(100,Number((document.querySelector<HTMLInputElement>("#cine-effect-duration")!).value)||700);await saveState({...state,cinematicConfig:{...config,cameraCues,durationMs:Math.max(500,Number(cineDuration.value)||7000),transition,effect,effectDurationMs}} as RoomState);status.textContent="CINEMÁTICA SALVA";});
+
+  document.querySelector<HTMLButtonElement>("#cine-play")!.addEventListener("click",async()=>{
+    const state=await getState();
+    const duration=Math.max(500,Number(cineDuration.value)||7000);
+    const cinematic={id:uid("cine"),name:"Cinemática",showBossBar:true,scenes:[{id:"main",title:"",subtitle:"",body:"",imageUrl:"",background:"#000",durationMs:duration,fadeInMs:500,fadeOutMs:500}]};
+    const startedAt=Date.now();
+    const activeCinematic={cinematic,introDurationMs:intro.durationMs,startedAt,nonce:uid("cine"),directorId:"GM"};
+    await saveState({...state,intro:{...intro},introVisible:true,introPhase:"show",introStartedAt:startedAt,introPhaseStartedAt:startedAt,activeCinematic,cinematicConfig:{...(state as RoomState & {cinematicConfig?:any}).cinematicConfig,cameraCues,durationMs:duration}} as RoomState);
+    status.textContent="CINEMÁTICA INICIADA";
+  });
+
+  const cineState=(await getState()) as RoomState & {cinematicConfig?:{transition?:string;effect?:string;effectDurationMs?:number;durationMs?:number;cameraCues?:any[]}};
+  if(cineState.cinematicConfig){
+    (document.querySelector<HTMLSelectElement>("#cine-transition")!).value=cineState.cinematicConfig.transition||"fade";
+    (document.querySelector<HTMLSelectElement>("#cine-effect")!).value=cineState.cinematicConfig.effect||"none";
+    (document.querySelector<HTMLInputElement>("#cine-effect-duration")!).value=String(cineState.cinematicConfig.effectDurationMs||700);
+    cineDuration.value=String(cineState.cinematicConfig.durationMs||7000);
+    cameraCues=cineState.cinematicConfig.cameraCues||[];
+  }
+  setRecordingButtons();renderCameraList();await renderPathList();
 
   // ---------------- BOSS BAR ----------------
   const bossName = document.querySelector<HTMLInputElement>("#boss-name")!;

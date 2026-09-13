@@ -43,3 +43,9 @@ button:hover{border-color:#b58d4f;color:#fff1d6}
 @media(max-width:850px){body{min-width:0}.shell{padding:15px}.grid,.intro-grid{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}}
 @media(max-width:560px){.grid,.intro-grid{grid-template-columns:1fr}.wide{grid-column:auto}.tabs{width:100%}.tab{flex:1}.intro-preview{height:300px}.preview-title{font-size:28px}}
 .cinematic-builder{display:grid;gap:18px}.path-card{border:1px solid rgba(217,164,65,.25);padding:16px;border-radius:10px;background:rgba(255,255,255,.025)}.path-card h3{margin:0 0 6px}.path-info{margin-top:10px;font-size:13px;opacity:.75}.path-list{display:grid;gap:8px}.saved-path{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.02)}.saved-path small{display:block;opacity:.6;margin-top:4px}.small{padding:6px 9px;font-size:11px}.empty{opacity:.55;padding:12px}.check{display:flex;align-items:center;gap:8px;flex-direction:row}.check input{width:auto}
+.inner-panel{margin-top:16px;background:rgba(0,0,0,.18)}
+.cinematic-controls{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px}
+.cinematic-controls .check{align-self:end;padding-bottom:10px}
+button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(1)}
+@media(max-width:900px){.cinematic-controls{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.cinematic-controls{grid-template-columns:1fr}}

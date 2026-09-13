@@ -1,6 +1,9 @@
-# RPG Boss Bar — 1.7.1
+# RPG Boss Bar 1.8.0 — Cinemática reestruturada
 
-Pacote reconstruído a partir do projeto 1.7.0 enviado pelo usuário.
+- Caminhos gravados pela posição real do token: marque ponto, mova o token, marque novamente.
+- Movimento contínuo e interpolado após a introdução.
+- Pontos de câmera fixos e câmera seguindo token.
+- Visão sincronizada para todos os jogadores.
 
 # RPG Boss Bar — 1.5.1
 
