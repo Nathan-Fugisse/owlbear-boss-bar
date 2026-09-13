@@ -27,21 +27,6 @@ interface IntroData {
   background: string;
 }
 
-interface CameraCue {
-  id: string;
-  atMs: number;
-  x: number;
-  y: number;
-  scale: number;
-  effect: "none" | "shake" | "roar" | "wave" | "impact" | "flash" | "zoom" | "distort";
-  intensity: number;
-}
-
-interface CinematicConfig {
-  durationMs: number;
-  transition: "fade" | "flash" | "black" | "none";
-  cameraCues: CameraCue[];
-}
 
 interface RoomState {
   boss?: BossData;
@@ -50,8 +35,6 @@ interface RoomState {
   introPhase?: "show" | "fade";
   introStartedAt?: number;
   introPhaseStartedAt?: number;
-  activeCinematic?: unknown;
-  cinematicConfig?: CinematicConfig;
 }
 
 const defaultBoss: BossData = {
@@ -162,7 +145,6 @@ async function initialize() {
       <nav class="tabs">
         <button class="tab active" data-tab="intro">INTRODUÇÃO DO BOSS</button>
         <button class="tab" data-tab="boss">BOSS BAR</button>
-        <button class="tab" data-tab="cinematic">CINEMÁTICA</button>
       </nav>
 
       <section id="tab-intro" class="tab-content active">
@@ -223,55 +205,7 @@ async function initialize() {
           </div>
         </section>
       </section>
-
-            <section id="tab-cinematic" class="tab-content">
-        <section class="panel cinematic-panel">
-          <div class="section-heading">
-            <div>
-              <div class="eyebrow">DIREÇÃO CINEMATOGRÁFICA</div>
-              <h2>EDITOR DE CINEMÁTICA</h2>
-              <p>Crie uma sequência de câmera e efeitos. A introdução do Boss acontece primeiro.</p>
-            </div>
-            <span id="cinematic-route-status">PRONTO</span>
-          </div>
-
-          <div class="cinematic-builder">
-            <section class="cine-section">
-              <div class="cine-section-title"><span class="rune">ᛉ</span><div><h3>PONTOS DE CÂMERA</h3><p>Posicione a visão do GM exatamente onde deseja e marque a cena.</p></div></div>
-              <div class="grid cinematic-controls">
-                <label>Tempo da cena (ms)<input id="camera-at" type="number" min="0" step="250" value="0" /></label>
-                <label>Duração total (ms)<input id="cine-duration" type="number" min="500" step="250" value="7000" /></label>
-                <label>Intensidade padrão<input id="cine-intensity" type="range" min="0" max="100" value="65" /></label>
-                <label>Efeito<select id="cine-effect"><option value="none">Nenhum</option><option value="roar">Rugido</option><option value="shake">Shake Camera</option><option value="wave">Onda de Som</option><option value="impact">Impacto</option><option value="flash">Flash</option><option value="zoom">Zoom Dramático</option><option value="distort">Distorção</option></select></label>
-              </div>
-              <div class="actions">
-                <button id="camera-mark" class="accent">MARCAR VISÃO ATUAL</button>
-                <button id="camera-clear" class="danger">LIMPAR CENAS</button>
-              </div>
-              <div id="camera-info" class="path-info">Nenhum ponto marcado.</div>
-              <div id="camera-list" class="path-list"></div>
-            </section>
-
-            <section class="cine-section">
-              <div class="cine-section-title"><span class="rune">ᚱ</span><div><h3>TRANSIÇÃO</h3><p>Escolha como a câmera entra na sequência depois da introdução.</p></div></div>
-              <div class="grid cinematic-controls">
-                <label>Transição<select id="cine-transition"><option value="fade">Fade</option><option value="flash">Flash</option><option value="black">Tela preta</option><option value="none">Nenhuma</option></select></label>
-                <label>Duração do efeito (ms)<input id="cine-effect-duration" type="number" min="100" step="100" value="700" /></label>
-              </div>
-            </section>
-
-            <section class="cine-section cine-execution">
-              <div class="cine-section-title"><span class="rune">ᛟ</span><div><h3>EXECUÇÃO</h3><p>Somente o GM controla. Todos os jogadores recebem a mesma sequência.</p></div></div>
-              <div class="actions">
-                <button id="cine-save" class="accent">SALVAR CINEMÁTICA</button>
-                <button id="cine-play" class="show">EXECUTAR CINEMÁTICA</button>
-              </div>
-            </section>
-          </div>
-        </section>
-      </section>
-
-<section id="tab-boss" class="tab-content">
+      <section id="tab-boss" class="tab-content">
         <section class="panel">
           <h2>CONFIGURAÇÃO DA BOSS BAR</h2>
           <div class="grid boss-grid">
@@ -419,87 +353,6 @@ async function initialize() {
       }
       status.textContent = "INTRODUÇÃO ENCERRADA";
     });
-
-  // ---------------- CINEMATIC EDITOR ----------------
-  let cameraCues: CameraCue[] = [];
-  const cameraAt = document.querySelector<HTMLInputElement>("#camera-at")!;
-  const cameraInfo = document.querySelector<HTMLElement>("#camera-info")!;
-  const cameraList = document.querySelector<HTMLElement>("#camera-list")!;
-  const cineDuration = document.querySelector<HTMLInputElement>("#cine-duration")!;
-  const cineEffect = document.querySelector<HTMLSelectElement>("#cine-effect")!;
-  const cineIntensity = document.querySelector<HTMLInputElement>("#cine-intensity")!;
-  const cineTransition = document.querySelector<HTMLSelectElement>("#cine-transition")!;
-  const cineEffectDuration = document.querySelector<HTMLInputElement>("#cine-effect-duration")!;
-
-  function effectLabel(effect: CameraCue["effect"]): string {
-    return ({ none:"Nenhum", roar:"Rugido", shake:"Shake Camera", wave:"Onda de Som", impact:"Impacto", flash:"Flash", zoom:"Zoom Dramático", distort:"Distorção" } as Record<string,string>)[effect] ?? effect;
-  }
-
-  async function saveCinematicConfig() {
-    const state = await getState();
-    const config: CinematicConfig = {
-      durationMs: Math.max(500, Number(cineDuration.value) || 7000),
-      transition: cineTransition.value as CinematicConfig["transition"],
-      cameraCues: [...cameraCues].sort((a,b) => a.atMs - b.atMs),
-    };
-    await saveState({ ...state, cinematicConfig: config } as RoomState & { cinematicConfig: CinematicConfig });
-  }
-
-  function renderCameraList() {
-    cameraList.innerHTML = cameraCues.length
-      ? cameraCues.map((c, i) => `<div class="saved-path cine-cue"><div><strong>${i + 1}. CENA ${String(c.atMs).padStart(4,"0")} ms</strong><small>${effectLabel(c.effect)} · zoom ${c.scale.toFixed(2)}x · intensidade ${c.intensity}%</small></div><button data-remove-camera="${c.id}" class="danger small">REMOVER</button></div>`).join("")
-      : '<div class="empty">Nenhuma cena criada. Posicione a visão do GM e marque a primeira.</div>';
-    cameraList.querySelectorAll<HTMLButtonElement>("[data-remove-camera]").forEach(btn => btn.addEventListener("click", async () => {
-      cameraCues = cameraCues.filter(c => c.id !== btn.dataset.removeCamera);
-      await saveCinematicConfig(); renderCameraList();
-    }));
-  }
-
-  document.querySelector<HTMLButtonElement>("#camera-mark")!.addEventListener("click", async () => {
-    const pos = await OBR.viewport.getPosition();
-    const scale = await OBR.viewport.getScale();
-    const atMs = Math.max(0, Number(cameraAt.value) || 0);
-    const cue: CameraCue = {
-      id: uid("cam"), atMs, x: pos.x, y: pos.y, scale,
-      effect: cineEffect.value as CameraCue["effect"],
-      intensity: Math.max(0, Math.min(100, Number(cineIntensity.value) || 65)),
-    };
-    cameraCues = [...cameraCues.filter(c => c.atMs !== atMs), cue].sort((a,b) => a.atMs-b.atMs);
-    cameraInfo.textContent = `Cena marcada em ${atMs} ms · ${effectLabel(cue.effect)}.`;
-    await saveCinematicConfig(); renderCameraList();
-  });
-
-  document.querySelector<HTMLButtonElement>("#camera-clear")!.addEventListener("click", async () => {
-    cameraCues = []; await saveCinematicConfig(); renderCameraList(); cameraInfo.textContent = "Todas as cenas foram removidas.";
-  });
-
-  document.querySelector<HTMLButtonElement>("#cine-save")!.addEventListener("click", async () => {
-    await saveCinematicConfig(); status.textContent = "CINEMÁTICA SALVA";
-  });
-
-  document.querySelector<HTMLButtonElement>("#cine-play")!.addEventListener("click", async () => {
-    if (!cameraCues.length) { cameraInfo.textContent = "Marque pelo menos uma cena de câmera."; return; }
-    const state = await getState();
-    const duration = Math.max(500, Number(cineDuration.value) || 7000);
-    const startedAt = Date.now();
-    const cinematic = { id: uid("cine"), name: "Cinemática", showBossBar: true, scenes: [{ id: "main", title: "", subtitle: "", body: "", imageUrl: "", background: "#000", durationMs: duration, fadeInMs: 500, fadeOutMs: 500 }] };
-    await saveState({
-      ...state,
-      intro: { ...intro }, introVisible: true, introPhase: "show", introStartedAt: startedAt, introPhaseStartedAt: startedAt,
-      activeCinematic: { cinematic, introDurationMs: intro.durationMs, startedAt, nonce: uid("cine"), directorId: "GM" },
-      cinematicConfig: { durationMs: duration, transition: cineTransition.value, cameraCues: [...cameraCues].sort((a,b)=>a.atMs-b.atMs) },
-    } as RoomState & { cinematicConfig: CinematicConfig; activeCinematic: unknown });
-    status.textContent = "CINEMÁTICA INICIADA";
-  });
-
-  const cineState = (await getState()) as RoomState & { cinematicConfig?: CinematicConfig };
-  if (cineState.cinematicConfig) {
-    const cfg = cineState.cinematicConfig;
-    cameraCues = Array.isArray(cfg.cameraCues) ? cfg.cameraCues : [];
-    cineDuration.value = String(cfg.durationMs || 7000);
-    cineTransition.value = cfg.transition || "fade";
-  }
-  renderCameraList();
 
   // ---------------- BOSS BAR ----------------
   const bossName = document.querySelector<HTMLInputElement>("#boss-name")!;
