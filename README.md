@@ -1,3 +1,7 @@
+# RPG Boss Bar 1.9.0 — Cinemática de Câmera
+
+Caminhos de tokens e câmera seguindo tokens foram removidos. A cinemática agora usa pontos de câmera marcados pela visão do GM e efeitos sincronizados, incluindo shake, rugido, impacto, flash, zoom, distorção e ondas de som.
+
 # RPG Boss Bar 1.8.0 — Cinemática reestruturada
 
 - Caminhos gravados pela posição real do token: marque ponto, mova o token, marque novamente.
