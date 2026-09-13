@@ -1,3 +1,7 @@
+# RPG Boss Bar — 1.7.1
+
+Pacote reconstruído a partir do projeto 1.7.0 enviado pelo usuário.
+
 # RPG Boss Bar — 1.5.1
 
 Correção da tela de introdução do Boss.
