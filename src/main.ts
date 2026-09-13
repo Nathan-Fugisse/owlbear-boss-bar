@@ -1,8 +1,11 @@
-import OBR from "@owlbear-rodeo/sdk";
+import OBR, { buildLine } from "@owlbear-rodeo/sdk";
 import "./style.css";
 
 const EXTENSION_ID = "com.nathan.rpg-boss-bar";
 const INTRO_STORAGE_KEY = `${EXTENSION_ID}/intro`;
+const PATH_TOOL_ID = `${EXTENSION_ID}/path-tool`;
+const PATH_MODE_ID = `${EXTENSION_ID}/path-mode`;
+const ROUTE_KEY = `${EXTENSION_ID}/patrolRoute`;
 
 interface DamageEvent {
   id: string;
@@ -27,8 +30,21 @@ interface IntroData {
   background: string;
 }
 
-interface CinematicPath { id:string; tokenId:string; tokenName:string; points:{x:number;y:number}[]; durationMs:number; delayMs:number; }
-interface CinematicData { name:string; durationMs:number; transition:string; transitionMs:number; effect:string; effectIntensity:number; overlayColor:string; overlayOpacity:number; title:string; subtitle:string; paths:CinematicPath[]; }
+interface PatrolRoute {
+  id: string;
+  name: string;
+  points: { x: number; y: number }[];
+  durationMs: number;
+  delayMs: number;
+  loop: boolean;
+  pingPong: boolean;
+  rotate: boolean;
+}
+
+interface CinematicState {
+  patrols?: { tokenId: string; route: PatrolRoute }[];
+}
+
 interface RoomState {
   boss?: BossData;
   intro?: IntroData;
@@ -36,8 +52,6 @@ interface RoomState {
   introPhase?: "show" | "fade";
   introStartedAt?: number;
   introPhaseStartedAt?: number;
-  cinematic?: CinematicData;
-  activeCinematic?: any;
 }
 
 const defaultBoss: BossData = {
@@ -210,6 +224,60 @@ async function initialize() {
         </section>
       </section>
 
+      <section id="tab-cinematic" class="tab-content">
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <h2>EDITOR DE CINEMÁTICA</h2>
+              <p>A cinemática começa automaticamente depois da introdução do Boss.</p>
+            </div>
+            <span id="cinematic-route-status">NENHUM CAMINHO</span>
+          </div>
+
+          <div class="cinematic-builder">
+            <div class="path-card">
+              <h3>CAMINHO DO TOKEN</h3>
+              <p>Selecione um token no mapa e grave um caminho clicando nos pontos por onde ele deve passar.</p>
+              <div class="actions">
+                <button id="path-start" class="accent">GRAVAR CAMINHO</button>
+                <button id="path-finish" class="show">FINALIZAR CAMINHO</button>
+                <button id="path-clear" class="danger">LIMPAR</button>
+              </div>
+              <div class="path-info" id="path-info">Selecione um token no mapa.</div>
+            </div>
+
+            <div class="grid">
+              <label>Nome do caminho<input id="path-name" type="text" maxlength="60" placeholder="Entrada do Boss" /></label>
+              <label>Duração (ms)<input id="path-duration" type="number" min="250" step="250" value="5000" /></label>
+              <label>Atraso (ms)<input id="path-delay" type="number" min="0" step="100" value="0" /></label>
+              <label>Comportamento
+                <select id="path-behavior"><option value="once">Uma vez</option><option value="loop">Repetir</option><option value="pingpong">Ida e volta</option></select>
+              </label>
+              <label class="check"><input id="path-rotate" type="checkbox" checked /> Girar o token conforme o movimento</label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>CAMINHOS SALVOS</h2>
+          <div id="path-list" class="path-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>EFEITOS</h2>
+          <div class="grid">
+            <label>Transição
+              <select id="cine-transition"><option value="fade">Fade</option><option value="flash">Flash</option><option value="black">Tela preta</option><option value="none">Nenhuma</option></select>
+            </label>
+            <label>Efeito de tela
+              <select id="cine-effect"><option value="none">Nenhum</option><option value="shake">Camera Shake</option><option value="glitch">Glitch</option><option value="flash">Flash</option><option value="vignette">Vinheta</option></select>
+            </label>
+            <label>Duração do efeito (ms)<input id="cine-effect-duration" type="number" min="100" step="100" value="700" /></label>
+          </div>
+          <div class="actions"><button id="cine-save" class="accent">SALVAR CONFIGURAÇÃO</button><button id="cine-play" class="show">TESTAR CINEMÁTICA</button></div>
+        </section>
+      </section>
+
       <section id="tab-boss" class="tab-content">
         <section class="panel">
           <h2>CONFIGURAÇÃO DA BOSS BAR</h2>
@@ -254,40 +322,6 @@ async function initialize() {
             <div id="preview-boss-name">EXAMPLE BOSS</div>
             <div class="boss-preview-bar"><div id="preview-boss-hp"></div></div>
           </div>
-        </section>
-      </section>
-
-      <section id="tab-cinematic" class="tab-content">
-        <section class="panel">
-          <div class="section-heading">
-            <div>
-              <h2>SISTEMA DE CINEMÁTICA</h2>
-              <p>A introdução do Boss acontece primeiro. Depois dela, esta sequência é executada automaticamente para todos.</p>
-            </div>
-          </div>
-          <div class="grid cinematic-grid">
-            <label class="wide">Nome da Cinemática<input id="cin-name" type="text" maxlength="100" /></label>
-            <label>Duração<input id="cin-duration" type="number" min="500" max="120000" step="100" /><small>milissegundos</small></label>
-            <label>Transição<select id="cin-transition"><option value="FADE">Fade</option><option value="BLACK">Tela preta</option><option value="FLASH">Flash</option><option value="NONE">Nenhuma</option></select></label>
-            <label>Tempo da transição<input id="cin-transition-ms" type="number" min="0" max="5000" step="50" /></label>
-            <label>Efeito de tela<select id="cin-effect"><option value="NONE">Nenhum</option><option value="SHAKE">Camera Shake</option><option value="GLITCH">Glitch</option><option value="FLASH">Flash</option><option value="VIGNETTE">Vinheta</option><option value="LETTERBOX">Cinema / Letterbox</option></select></label>
-            <label>Intensidade<input id="cin-intensity" type="number" min="0" max="100" step="5" /></label>
-            <label>Cor da sobreposição<input id="cin-color" type="color" /></label>
-            <label>Opacidade<input id="cin-opacity" type="number" min="0" max="100" step="5" /></label>
-            <label class="wide">Título da cena<input id="cin-title" type="text" maxlength="100" placeholder="ENTRADA DO CHEFE" /></label>
-            <label class="wide">Subtítulo<input id="cin-subtitle" type="text" maxlength="160" placeholder="O campo ficou em silêncio..." /></label>
-          </div>
-          <div class="actions">
-            <button id="cin-save" class="accent">SALVAR CINEMÁTICA</button>
-            <button id="cin-play" class="show">TESTAR / EXECUTAR</button>
-            <button id="cin-stop" class="danger">PARAR</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading"><div><h2>MOVIMENTO DE TOKENS</h2><p>Selecione um token no mapa, clique em <strong>GRAVAR CAMINHO</strong> e marque os pontos no mapa. Duplo clique ou Enter termina.</p></div></div>
-          <div class="actions"><button id="cin-record" class="accent">GRAVAR CAMINHO DO TOKEN SELECIONADO</button></div>
-          <div id="cin-paths" class="cin-paths"></div>
         </section>
       </section>
     </main>`;
@@ -393,6 +427,172 @@ async function initialize() {
       status.textContent = "INTRODUÇÃO ENCERRADA";
     });
 
+  // ---------------- CINEMATIC PATH EDITOR ----------------
+  let recording = false;
+  let recordingTokenId = "";
+  let recordingPoints: { x: number; y: number }[] = [];
+  let localPreviewIds: string[] = [];
+
+  const routeStatus = document.querySelector<HTMLElement>("#cinematic-route-status")!;
+  const pathInfo = document.querySelector<HTMLElement>("#path-info")!;
+  const pathList = document.querySelector<HTMLElement>("#path-list")!;
+  const pathName = document.querySelector<HTMLInputElement>("#path-name")!;
+  const pathDuration = document.querySelector<HTMLInputElement>("#path-duration")!;
+  const pathDelay = document.querySelector<HTMLInputElement>("#path-delay")!;
+  const pathBehavior = document.querySelector<HTMLSelectElement>("#path-behavior")!;
+  const pathRotate = document.querySelector<HTMLInputElement>("#path-rotate")!;
+
+  function routeFromDraft(): PatrolRoute {
+    return {
+      id: uid("route"),
+      name: pathName.value.trim() || "Caminho do Token",
+      points: recordingPoints.map((p) => ({ ...p })),
+      durationMs: Math.max(250, Number(pathDuration.value) || 5000),
+      delayMs: Math.max(0, Number(pathDelay.value) || 0),
+      loop: pathBehavior.value === "loop",
+      pingPong: pathBehavior.value === "pingpong",
+      rotate: pathRotate.checked,
+    };
+  }
+
+  async function getSelectedToken() {
+    const ids = (await OBR.player.getSelection()) ?? [];
+    if (!ids.length) return null;
+    const items = await OBR.scene.items.getItems(ids);
+    return items.find((item) => item.layer === "CHARACTER") ?? items[0] ?? null;
+  }
+
+  async function clearLocalPreview() {
+    if (!localPreviewIds.length) return;
+    try { await OBR.scene.local.deleteItems(localPreviewIds); } catch {}
+    localPreviewIds = [];
+  }
+
+  async function drawPreview() {
+    await clearLocalPreview();
+    if (recordingPoints.length < 2) return;
+    const lines = [];
+    for (let i = 1; i < recordingPoints.length; i += 1) {
+      const a = recordingPoints[i - 1], b = recordingPoints[i];
+      lines.push(buildLine().endPosition(b).position(a).strokeColor("#d9a441").strokeOpacity(0.85).strokeWidth(4).build());
+    }
+    await OBR.scene.local.addItems(lines);
+    localPreviewIds = lines.map((line) => line.id);
+  }
+
+  async function setupPathTool() {
+    try {
+      await OBR.tool.create({
+        id: PATH_TOOL_ID,
+        icons: [{ icon: "/path.svg", label: "Gravar caminho" }],
+        defaultMode: PATH_MODE_ID,
+        disabled: { roles: ["PLAYER"] },
+      });
+    } catch {}
+    try {
+      await OBR.tool.createMode({
+        id: PATH_MODE_ID,
+        icons: [{ icon: "/path.svg", label: "Marcar ponto" }],
+        cursors: [{ cursor: "crosshair" }],
+        disabled: { roles: ["PLAYER"] },
+        onToolClick: (_context, event) => {
+          if (!recording) return true;
+          recordingPoints.push({ ...event.pointerPosition });
+          pathInfo.textContent = `${recordingPoints.length} ponto(s) marcado(s)`;
+          void drawPreview();
+          return false;
+        },
+        onKeyDown: (_context, event) => {
+          if (event.key === "Enter" && recording) void finishPath();
+          if (event.key === "Escape" && recording) void cancelPath();
+        },
+      });
+    } catch {}
+  }
+
+  async function startPath() {
+    const token = await getSelectedToken();
+    if (!token) { pathInfo.textContent = "Selecione um token antes de gravar."; return; }
+    recording = true;
+    recordingTokenId = token.id;
+    recordingPoints = [{ ...token.position }];
+    routeStatus.textContent = `GRAVANDO: ${token.name || token.id}`;
+    pathInfo.textContent = "Clique no mapa para adicionar pontos. Enter finaliza; Esc cancela.";
+    await OBR.tool.activateMode(PATH_TOOL_ID, PATH_MODE_ID);
+    await drawPreview();
+  }
+
+  async function cancelPath() {
+    recording = false;
+    recordingTokenId = "";
+    recordingPoints = [];
+    routeStatus.textContent = "NENHUM CAMINHO";
+    pathInfo.textContent = "Gravação cancelada.";
+    await clearLocalPreview();
+  }
+
+  async function finishPath() {
+    if (!recording) return;
+    if (recordingPoints.length < 2) { pathInfo.textContent = "Marque pelo menos dois pontos."; return; }
+    const route = routeFromDraft();
+    const tokenId = recordingTokenId;
+    await OBR.scene.items.updateItems([tokenId], (items) => {
+      for (const item of items) item.metadata[ROUTE_KEY] = route;
+    });
+    const state = await getState();
+    const cinematic: CinematicState = (state as RoomState & { cinematic?: CinematicState }).cinematic ?? {};
+    cinematic.patrols = [...(cinematic.patrols ?? []).filter((p) => p.tokenId !== tokenId), { tokenId, route }];
+    await saveState({ ...state, cinematic } as RoomState);
+    recording = false;
+    routeStatus.textContent = "CAMINHO SALVO";
+    pathInfo.textContent = `${route.name}: ${route.points.length} pontos.`;
+    await clearLocalPreview();
+    await renderPathList();
+  }
+
+  async function renderPathList() {
+    const state = await getState();
+    const cinematic: CinematicState = (state as RoomState & { cinematic?: CinematicState }).cinematic ?? {};
+    const patrols = cinematic.patrols ?? [];
+    pathList.innerHTML = patrols.length ? patrols.map((p) => `
+      <div class="saved-path"><div><strong>${escapeHtml(p.route.name)}</strong><small>${p.route.points.length} pontos · ${Math.round(p.route.durationMs / 1000)}s</small></div><button data-remove-route="${p.tokenId}" class="danger small">REMOVER</button></div>`).join("") : '<div class="empty">Nenhum caminho salvo.</div>';
+    pathList.querySelectorAll<HTMLButtonElement>("[data-remove-route]").forEach((button) => button.addEventListener("click", async () => {
+      const tokenId = button.dataset.removeRoute!;
+      const next = await getState();
+      const cine: CinematicState = (next as RoomState & { cinematic?: CinematicState }).cinematic ?? {};
+      await saveState({ ...next, cinematic: { ...cine, patrols: (cine.patrols ?? []).filter((p) => p.tokenId !== tokenId) } } as RoomState);
+      try { await OBR.scene.items.updateItems([tokenId], (items) => { for (const item of items) delete item.metadata[ROUTE_KEY]; }); } catch {}
+      await renderPathList();
+    }));
+  }
+
+  document.querySelector<HTMLButtonElement>("#path-start")!.addEventListener("click", () => void startPath());
+  document.querySelector<HTMLButtonElement>("#path-finish")!.addEventListener("click", () => void finishPath());
+  document.querySelector<HTMLButtonElement>("#path-clear")!.addEventListener("click", () => void cancelPath());
+  document.querySelector<HTMLButtonElement>("#cine-save")!.addEventListener("click", async () => {
+    const state = await getState();
+    const transition = (document.querySelector<HTMLSelectElement>("#cine-transition")!).value;
+    const effect = (document.querySelector<HTMLSelectElement>("#cine-effect")!).value;
+    const effectDurationMs = Math.max(100, Number((document.querySelector<HTMLInputElement>("#cine-effect-duration")!).value) || 700);
+    await saveState({ ...state, cinematicConfig: { transition, effect, effectDurationMs } } as RoomState);
+    status.textContent = "CONFIGURAÇÃO DA CINEMÁTICA SALVA";
+  });
+  document.querySelector<HTMLButtonElement>("#cine-play")!.addEventListener("click", async () => {
+    const state = await getState();
+    const cinematic = { id: uid("cine"), name: "Cinemática", showBossBar: true, scenes: [{ id: "main", title: "", subtitle: "", body: "", imageUrl: "", background: "#000", durationMs: 7000, fadeInMs: 500, fadeOutMs: 500 }] };
+    const activeCinematic = { cinematic, introDurationMs: intro.durationMs, startedAt: Date.now(), nonce: uid("cine"), directorId: "GM" };
+    await saveState({ ...state, intro: { ...intro }, introVisible: true, introPhase: "show", introStartedAt: Date.now(), introPhaseStartedAt: Date.now(), activeCinematic } as RoomState);
+    status.textContent = "CINEMÁTICA INICIADA APÓS A INTRODUÇÃO";
+  });
+  await setupPathTool();
+  const cineState = (await getState()) as RoomState & { cinematicConfig?: { transition:string; effect:string; effectDurationMs:number } };
+  if (cineState.cinematicConfig) {
+    (document.querySelector<HTMLSelectElement>("#cine-transition")!).value = cineState.cinematicConfig.transition || "fade";
+    (document.querySelector<HTMLSelectElement>("#cine-effect")!).value = cineState.cinematicConfig.effect || "none";
+    (document.querySelector<HTMLInputElement>("#cine-effect-duration")!).value = String(cineState.cinematicConfig.effectDurationMs || 700);
+  }
+  await renderPathList();
+
   // ---------------- BOSS BAR ----------------
   const bossName = document.querySelector<HTMLInputElement>("#boss-name")!;
   const currentHp = document.querySelector<HTMLInputElement>("#current-hp")!;
@@ -467,35 +667,6 @@ async function initialize() {
 
   document.querySelector<HTMLButtonElement>("#boss-hide")!
     .addEventListener("click", () => void saveBoss(false));
-
-  // ---------------- CINEMATIC ----------------
-  const defaultCinematic: CinematicData = { name:"Entrada Cinemática", durationMs:6000, transition:"FADE", transitionMs:800, effect:"NONE", effectIntensity:50, overlayColor:"#000000", overlayOpacity:0, title:"", subtitle:"", paths:[] };
-  let cinematic: CinematicData = { ...defaultCinematic, ...(state.cinematic ?? {}), paths: state.cinematic?.paths ?? [] };
-  const cName=document.querySelector<HTMLInputElement>("#cin-name")!;
-  const cDuration=document.querySelector<HTMLInputElement>("#cin-duration")!;
-  const cTransition=document.querySelector<HTMLSelectElement>("#cin-transition")!;
-  const cTransitionMs=document.querySelector<HTMLInputElement>("#cin-transition-ms")!;
-  const cEffect=document.querySelector<HTMLSelectElement>("#cin-effect")!;
-  const cIntensity=document.querySelector<HTMLInputElement>("#cin-intensity")!;
-  const cColor=document.querySelector<HTMLInputElement>("#cin-color")!;
-  const cOpacity=document.querySelector<HTMLInputElement>("#cin-opacity")!;
-  const cTitle=document.querySelector<HTMLInputElement>("#cin-title")!;
-  const cSubtitle=document.querySelector<HTMLInputElement>("#cin-subtitle")!;
-  const pathsBox=document.querySelector<HTMLDivElement>("#cin-paths")!;
-  const renderCinematic=()=>{
-    cName.value=cinematic.name;cDuration.value=String(cinematic.durationMs);cTransition.value=cinematic.transition;cTransitionMs.value=String(cinematic.transitionMs);cEffect.value=cinematic.effect;cIntensity.value=String(cinematic.effectIntensity);cColor.value=cinematic.overlayColor;cOpacity.value=String(cinematic.overlayOpacity);cTitle.value=cinematic.title;cSubtitle.value=cinematic.subtitle;
-    pathsBox.innerHTML=cinematic.paths.length?cinematic.paths.map((p,i)=>`<div class="cin-path"><div><strong>${escapeHtml(p.tokenName)}</strong><small>${p.points.length} pontos</small></div><label>Duração <input data-path-duration="${p.id}" type="number" min="100" max="120000" step="100" value="${p.durationMs}" /></label><label>Atraso <input data-path-delay="${p.id}" type="number" min="0" max="120000" step="100" value="${p.delayMs}" /></label><button data-path-delete="${p.id}" class="danger">REMOVER</button></div>`).join(""):`<div class="empty">Nenhum caminho gravado ainda.</div>`;
-    pathsBox.querySelectorAll<HTMLInputElement>("[data-path-duration]").forEach(input=>input.addEventListener("change",async()=>{const p=cinematic.paths.find(x=>x.id===input.dataset.pathDuration);if(p)p.durationMs=Math.max(100,Number(input.value)||p.durationMs);await saveCinematic();}));
-    pathsBox.querySelectorAll<HTMLInputElement>("[data-path-delay]").forEach(input=>input.addEventListener("change",async()=>{const p=cinematic.paths.find(x=>x.id===input.dataset.pathDelay);if(p)p.delayMs=Math.max(0,Number(input.value)||0);await saveCinematic();}));
-    pathsBox.querySelectorAll<HTMLButtonElement>("[data-path-delete]").forEach(btn=>btn.addEventListener("click",async()=>{cinematic.paths=cinematic.paths.filter(p=>p.id!==btn.dataset.pathDelete);await saveCinematic();renderCinematic();}));
-  };
-  const readCinematic=():CinematicData=>({...cinematic,name:cName.value.trim()||"Entrada Cinemática",durationMs:Math.max(500,Math.min(120000,Number(cDuration.value)||6000)),transition:cTransition.value,transitionMs:Math.max(0,Math.min(5000,Number(cTransitionMs.value)||800)),effect:cEffect.value,effectIntensity:Math.max(0,Math.min(100,Number(cIntensity.value)||50)),overlayColor:cColor.value||"#000000",overlayOpacity:Math.max(0,Math.min(100,Number(cOpacity.value)||0)),title:cTitle.value.trim(),subtitle:cSubtitle.value.trim(),paths:cinematic.paths});
-  async function saveCinematic(){cinematic=readCinematic();const current=await getState();await saveState({...current,cinematic});status.textContent="CINEMÁTICA SALVA";}
-  document.querySelector<HTMLButtonElement>("#cin-save")!.addEventListener("click",()=>void saveCinematic());
-  document.querySelector<HTMLButtonElement>("#cin-play")!.addEventListener("click",async()=>{await saveCinematic();const current=await getState();const active={cinematic, introDurationMs:Math.max(1000,Number(current.intro?.durationMs)||4500)+1100, startedAt:Date.now(), nonce:`cin-${Date.now()}-${Math.random().toString(36).slice(2)}`};await saveState({...current,intro:current.intro||defaultIntro,introVisible:true,introPhase:"show",introStartedAt:Date.now(),introPhaseStartedAt:Date.now(),activeCinematic:active});status.textContent="CINEMÁTICA EXECUTANDO";});
-  document.querySelector<HTMLButtonElement>("#cin-stop")!.addEventListener("click",async()=>{const current=await getState();await saveState({...current,activeCinematic:null,introVisible:false,introPhase:undefined});status.textContent="CINEMÁTICA PARADA";});
-  document.querySelector<HTMLButtonElement>("#cin-record")!.addEventListener("click",async()=>{const selection=await OBR.player.getSelection();if(!selection?.length){status.textContent="SELECIONE UM TOKEN NO MAPA";return;}await OBR.tool.setMetadata("com.nathan.rpg-boss-bar/cinematic-path-tool",{tokenId:selection[0]});await OBR.tool.activateMode("com.nathan.rpg-boss-bar/cinematic-path-tool","com.nathan.rpg-boss-bar/cinematic-path-tool/record");status.textContent="GRAVANDO CAMINHO — MARQUE OS PONTOS NO MAPA";});
-  renderCinematic();
 
   renderIntro();
   renderBoss();

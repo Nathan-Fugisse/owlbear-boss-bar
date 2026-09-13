@@ -1,1 +1,147 @@
-*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent}body{opacity:0;pointer-events:none}body.active{opacity:1}.cinematic-root{--scene-opacity:0;--transition-opacity:0;--effect-intensity:.5;--overlay-color:#000;--overlay-opacity:0;position:fixed;inset:0;display:grid;place-items:center;overflow:hidden;color:#f1ede4;font-family:Georgia,"Times New Roman",serif;opacity:var(--scene-opacity);background:rgba(0,0,0,var(--overlay-opacity));transition:opacity 30ms linear}.cinematic-root::before{content:"";position:absolute;inset:0;background:var(--overlay-color);opacity:var(--transition-opacity);z-index:20;pointer-events:none}.cinematic-copy{position:relative;z-index:10;width:min(1000px,82vw);text-align:center;text-shadow:0 3px 16px #000}.subtitle{color:#b7a47c;font-size:clamp(12px,1.5vw,18px);letter-spacing:.45em;text-transform:uppercase;margin-bottom:16px}.title{font-size:clamp(34px,5vw,72px);letter-spacing:.12em;text-transform:uppercase;line-height:1.05}.rule{width:min(420px,50vw);height:1px;margin:20px auto;background:linear-gradient(90deg,transparent,rgba(231,219,191,.75),transparent)}.letterbox:before,.letterbox:after{content:"";position:absolute;left:0;right:0;height:10vh;background:#000;z-index:15;pointer-events:none}.letterbox:before{top:0}.letterbox:after{bottom:0}.vignetted:after{content:"";position:absolute;inset:0;z-index:5;background:radial-gradient(ellipse at center,transparent 30%,rgba(0,0,0,.25) 65%,rgba(0,0,0,.85) 100%);pointer-events:none}.shaking .cinematic-copy{animation:shake 90ms infinite}.glitching .cinematic-copy{animation:glitch 180ms infinite}.glitching:after{content:"";position:absolute;inset:0;z-index:12;background:repeating-linear-gradient(transparent 0 3px,rgba(255,255,255,.05) 4px 5px);mix-blend-mode:screen;opacity:var(--effect-intensity);pointer-events:none}.cinematic-root[data-flash="1"]:after{content:"";position:absolute;inset:0;background:#fff;z-index:30;opacity:.9;pointer-events:none}@keyframes shake{0%,100%{transform:translate(0)}25%{transform:translate(-5px,3px)}50%{transform:translate(4px,-3px)}75%{transform:translate(-3px,-2px)}}@keyframes glitch{0%,100%{transform:translate(0)}20%{transform:translate(-4px,1px)}40%{transform:translate(5px,-1px)}60%{transform:translate(-2px,2px)}80%{transform:translate(3px,0)}}
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+body.active {
+  opacity: 1;
+}
+
+#cinematic-root {
+  --scene-opacity: 1;
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #f1ede4;
+  font-family: Georgia, "Times New Roman", serif;
+  opacity: var(--scene-opacity);
+  transition: opacity 80ms linear;
+}
+
+#cinematic-root::before { content: none; }
+
+/* The intro card is visible first. After it fades away the same full-screen
+   modal becomes completely transparent so the Owlbear map and camera motion
+   are visible to the players. */
+#cinematic-root:not(.boss-intro) {
+  pointer-events: none;
+}
+
+#cinematic-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(.75) contrast(1.1);
+  opacity: .72;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+.letterbox {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 10vh;
+  background: #000;
+  z-index: 9999;
+  display: none;
+}
+
+.letterbox.top { top: 0; }
+.letterbox.bottom { bottom: 0; }
+
+.cinematic-copy {
+  position: relative;
+  z-index: 4;
+  width: min(900px, 82vw);
+  text-align: center;
+  text-shadow: 0 3px 12px #000;
+  transform: translateY(3vh);
+}
+
+.subtitle {
+  color: #b7a47c;
+  font-size: clamp(12px, 1.5vw, 18px);
+  letter-spacing: .45em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: clamp(34px, 5vw, 72px);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.rule {
+  width: min(420px, 50vw);
+  height: 1px;
+  margin: 20px auto;
+  background: linear-gradient(90deg, transparent, rgba(231,219,191,.75), transparent);
+}
+
+.body {
+  width: min(650px, 78vw);
+  margin: 0 auto;
+  font-size: clamp(15px, 1.7vw, 22px);
+  line-height: 1.7;
+  color: rgba(241,237,228,.9);
+}
+
+#cinematic-subtitle,
+#cinematic-title,
+#cinematic-body {
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+#cinematic-subtitle {
+  transform: translateY(0);
+}
+
+#cinematic-title {
+  transform: translateY(0);
+}
+
+#cinematic-body {
+  transform: translateY(0);
+}
+.timeline-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+
+/* Keep the cinematic black borders visible from the intro until the cinematic ends. */
+#cinematic-root.cinematic-running .letterbox {
+  display: block;
+}
+#cinematic-root.cinematic-running {
+  pointer-events: none;
+}
+#cinematic-root.effect-vignette::after{content:"";position:absolute;inset:0;z-index:20;pointer-events:none;background:radial-gradient(circle,transparent 35%,rgba(0,0,0,.75) 100%)}
+#cinematic-root.effect-flash::after{content:"";position:absolute;inset:0;z-index:30;pointer-events:none;background:#fff;opacity:.8;animation:cinematic-flash .7s ease-out forwards}
+#cinematic-root.effect-shake{animation:cinematic-shake .08s linear infinite}
+#cinematic-root.effect-glitch{animation:cinematic-glitch .12s steps(2,end) infinite}
+@keyframes cinematic-flash{from{opacity:.85}to{opacity:0}}
+@keyframes cinematic-shake{0%{transform:translate(0,0)}25%{transform:translate(-5px,3px)}50%{transform:translate(4px,-4px)}75%{transform:translate(3px,4px)}100%{transform:translate(0,0)}}
+@keyframes cinematic-glitch{0%{filter:none}25%{filter:hue-rotate(25deg) contrast(1.25)}50%{filter:blur(1px) saturate(1.7)}75%{filter:hue-rotate(-20deg) contrast(1.35)}100%{filter:none}}

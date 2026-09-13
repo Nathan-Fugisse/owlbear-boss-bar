@@ -1,26 +1,32 @@
-# RPG Boss Bar + Cinemáticas
+# RPG Boss Bar — 1.5.1
 
-Extensão para Owlbear Rodeo baseada na Boss Bar existente.
+Correção da tela de introdução do Boss.
 
-## Novidades desta versão
+## Correções 1.5.1
 
-- Aba separada **CINEMÁTICA**.
-- A cinemática sempre começa depois da introdução do Boss quando executada pelo botão da aba.
-- Transições: Fade, Tela preta, Flash ou nenhuma.
-- Efeitos de tela: Camera Shake, Glitch, Flash, Vinheta e Letterbox.
-- Título e subtítulo de cena.
-- Gravação de caminhos para tokens diretamente no mapa.
-- Selecione um token, clique em **Gravar Caminho do Token Selecionado** e marque os pontos no mapa.
-- Duplo clique ou Enter finaliza o caminho.
-- Duração e atraso de cada movimento podem ser ajustados na aba Cinemática.
-- Apenas o Mestre pode editar/executar.
-- A execução e os movimentos são sincronizados pela sala.
+- A linha do tempo da introdução agora é comandada somente pelo Mestre, evitando que vários clientes escrevam o mesmo metadata ao mesmo tempo.
+- Cada cliente calcula a apresentação a partir dos timestamps compartilhados, mantendo os jogadores sincronizados mesmo se abrirem a extensão depois da introdução começar.
+- A fase de fade também possui timestamp próprio, evitando que jogadores atrasados reiniciem o fade.
+- `cinematic.html` agora entra corretamente no build do Vite.
 
-## Instalação
+## Correções
 
-```bash
-npm install
-npm run build
-```
+- A introdução agora usa o mesmo overlay persistente da Boss Bar.
+- Todos os jogadores recebem a introdução através do metadata sincronizado da sala.
+- A Boss Bar fica escondida enquanto a introdução está ativa.
+- A imagem continua sendo configurada por URL.
+- A introdução entra com fade suave.
+- Ao terminar, entra em um fade-out de aproximadamente 1,1 segundo antes de desaparecer.
+- A Boss Bar só volta depois que o fade termina.
+- Se a introdução for encerrada manualmente, ela também faz fade-out em vez de desaparecer instantaneamente.
+- O valor numérico do HP continua invisível para os jogadores.
+- O sistema de cutscene/timeline continua removido.
 
-Depois use o `public/manifest.json`/build hospedado conforme a instalação de extensões do Owlbear Rodeo.
+
+## Cinemática — sistema de caminhos
+
+A versão 1.7.0 adiciona um editor de caminhos inspirado no fluxo de patrulha do módulo Patrol de TheRipper93: o Mestre seleciona um token, ativa a gravação e marca pontos diretamente no mapa. O caminho é salvo no metadata do token e pode ser executado durante uma cinemática.
+
+O projeto não incorpora código proprietário do módulo Patrol; a implementação usa as APIs oficiais do Owlbear Rodeo e reproduz a ideia de edição por pontos, com duração, loop, ida e volta e rotação.
+
+Referência: https://github.com/theripper93/Patrol — Patrol é distribuído sob licença MIT.
