@@ -1,6 +1,6 @@
-# RPG Boss Bar 1.9.0 — Cinemática de Câmera
+# RPG Boss Bar 1.9.1 — Cinemática Elden Ring
 
-Caminhos de tokens e câmera seguindo tokens foram removidos. A cinemática agora usa pontos de câmera marcados pela visão do GM e efeitos sincronizados, incluindo shake, rugido, impacto, flash, zoom, distorção e ondas de som.
+Sistema de caminhos de tokens e câmera seguindo tokens removido. A cinemática agora é baseada em pontos de câmera marcados pela visão do GM e efeitos cinematográficos sincronizados, incluindo rugido com ondas de som, shake, impacto, flash, zoom e distorção.
 
 # RPG Boss Bar 1.8.0 — Cinemática reestruturada
 
