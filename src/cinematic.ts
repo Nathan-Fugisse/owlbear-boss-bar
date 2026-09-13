@@ -2,294 +2,49 @@ import OBR from "@owlbear-rodeo/sdk";
 import "./cinematic.css";
 
 const EXTENSION_ID = "com.nathan.rpg-boss-bar";
+interface CinematicData { name:string; durationMs:number; transition:string; transitionMs:number; effect:string; effectIntensity:number; overlayColor:string; overlayOpacity:number; title:string; subtitle:string; paths:any[]; }
+interface ActiveCinematic { cinematic:CinematicData; introDurationMs:number; startedAt:number; nonce:string; }
+interface RoomState { activeCinematic?:ActiveCinematic|null; introVisible?:boolean; introPhase?:"show"|"fade"; introPhaseStartedAt?:number; }
 
-type CueType =
-  | "TITLE_IN"
-  | "SUBTITLE_IN"
-  | "BODY_IN"
-  | "BOSS_SHOW"
-  | "BOSS_HIDE"
-  | "BOSS_DAMAGE"
-  | "BOSS_HEAL"
-  | "CAMERA";
-
-interface CameraCue {
-  x: number;
-  y: number;
-  scale: number;
+let nonce="";let frame=0;
+function activeFrom(metadata:any):ActiveCinematic|null{return (metadata[EXTENSION_ID] as RoomState|undefined)?.activeCinematic??null;}
+function clamp(v:number,a=0,b=1){return Math.max(a,Math.min(b,v));}
+function ease(t:number){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function introProgress(active:ActiveCinematic){const intro=Number(active.introDurationMs)||0;const elapsed=Date.now()-active.startedAt;return{elapsed,intro,cinematic:Math.max(0,elapsed-intro)};}
+function applyEffect(root:HTMLElement,c:CinematicData,t:number){
+  root.className="cinematic-root cinematic-running";
+  root.dataset.effect=c.effect||"NONE";
+  root.style.setProperty("--effect-intensity",String(clamp((Number(c.effectIntensity)||50)/100)));
+  root.style.setProperty("--overlay-color",c.overlayColor||"#000");
+  root.style.setProperty("--overlay-opacity",String(clamp((Number(c.overlayOpacity)||0)/100)));
+  if(c.effect==="FLASH" && t<Math.min(450,Number(c.transitionMs)||450)) root.dataset.flash="1"; else delete root.dataset.flash;
 }
-
-interface CinematicCue {
-  id: string;
-  atMs: number;
-  type: CueType;
-  value?: number;
-  camera?: CameraCue;
+function render(active:ActiveCinematic){
+  const root=document.getElementById("cinematic-root")!;const title=document.getElementById("cinematic-title")!;const subtitle=document.getElementById("cinematic-subtitle")!;const progress=introProgress(active);const c=active.cinematic;
+  if(progress.cinematic<0)return;
+  const total=Math.max(500,Number(c.durationMs)||6000);const t=progress.cinematic;
+  root.style.setProperty("--scene-opacity","1");
+  title.textContent=c.title||"";subtitle.textContent=c.subtitle||"";
+  title.style.display=c.title?"block":"none";subtitle.style.display=c.subtitle?"block":"none";
+  applyEffect(root,c,t);
+  const tr=Math.max(0,Number(c.transitionMs)||800);
+  if(c.transition==="FADE"&&t<tr)root.style.setProperty("--transition-opacity",String(clamp(t/tr)));
+  else if(c.transition==="BLACK"&&t<tr)root.style.setProperty("--transition-opacity","1");
+  else if(c.transition==="FLASH"&&t<tr)root.style.setProperty("--transition-opacity",String(1-clamp(t/tr)));
+  else root.style.setProperty("--transition-opacity","0");
+  if(c.effect==="LETTERBOX")root.classList.add("letterboxed");
+  if(c.effect==="VIGNETTE")root.classList.add("vignetted");
+  if(c.effect==="SHAKE")root.classList.add("shaking");
+  if(c.effect==="GLITCH")root.classList.add("glitching");
+  const fadeOut=Math.min(700,total*.18);if(t>total-fadeOut)root.style.setProperty("--scene-opacity",String(clamp((total-t)/fadeOut)));
 }
-
-interface CinematicScene {
-  id: string;
-  title: string;
-  subtitle: string;
-  body: string;
-  imageUrl: string;
-  background: string;
-  durationMs: number;
-  fadeInMs: number;
-  fadeOutMs: number;
-  camera?: CameraCue;
-  cues?: CinematicCue[];
-}
-
-interface Cinematic {
-  id: string;
-  name: string;
-  showBossBar?: boolean;
-  scenes: CinematicScene[];
-}
-
-interface ActiveCinematic {
-  cinematic: Cinematic;
-  introDurationMs?: number;
-  startedAt: number;
-  nonce: string;
-  directorId: string;
-}
-
-interface RoomState {
-  activeCinematic?: ActiveCinematic | null;
-}
-
-let activeNonce = "";
-let animationFrame = 0;
-let currentCameraKey = "";
-let currentCameraSegment = "";
-const executedCueIds = new Set<string>();
-
-function getActiveFromMetadata(metadata: Record<string, unknown>): ActiveCinematic | null {
-  const state = metadata[EXTENSION_ID] as RoomState | undefined;
-  return state?.activeCinematic ?? null;
-}
-
-function timelineDuration(cinematic: Cinematic): number {
-  return cinematic.scenes.reduce(
-    (sum, scene) => sum + Math.max(500, Number(scene.durationMs) || 500),
-    0
-  );
-}
-
-function introDuration(active: ActiveCinematic): number {
-  return Math.max(0, Number(active.introDurationMs) || 4500);
-}
-
-function sceneAt(cinematic: Cinematic, elapsed: number) {
-  let remaining = Math.max(0, elapsed);
-  let sceneIndex = 0;
-
-  for (let index = 0; index < cinematic.scenes.length; index += 1) {
-    const scene = cinematic.scenes[index];
-    const duration = Math.max(500, Number(scene.durationMs) || 500);
-    if (remaining < duration) {
-      sceneIndex = index;
-      return { scene, sceneIndex, elapsed: remaining, duration };
-    }
-    remaining -= duration;
-  }
-
-  const lastIndex = Math.max(0, cinematic.scenes.length - 1);
-  const last = cinematic.scenes[lastIndex];
-  return {
-    scene: last,
-    sceneIndex: lastIndex,
-    elapsed: Math.max(0, Number(last?.durationMs) || 500),
-    duration: Math.max(500, Number(last?.durationMs) || 500),
-  };
-}
-
-function cuePassed(cue: CinematicCue, elapsed: number): boolean {
-  return elapsed >= Math.max(0, Number(cue.atMs) || 0);
-}
-
-function opacityAfterCue(elapsed: number, cueTime: number, ramp = 280): number {
-  if (elapsed < cueTime) return 0;
-  return Math.min(1, (elapsed - cueTime) / Math.max(1, ramp));
-}
-
-function renderBossIntroduction(scene: CinematicScene, elapsed: number, duration: number) {
-  const root = document.getElementById("cinematic-root")!;
-  const image = document.getElementById("cinematic-image") as HTMLImageElement;
-  const subtitle = document.getElementById("cinematic-subtitle")!;
-  const title = document.getElementById("cinematic-title")!;
-  const copy = document.querySelector<HTMLElement>(".cinematic-copy")!;
-
-  root.classList.add("boss-intro", "cinematic-running");
-  root.style.background = scene.background || "#080808";
-  copy.style.display = "block";
-
-  if (scene.imageUrl) {
-    image.src = scene.imageUrl;
-    image.style.display = "block";
-  } else {
-    image.removeAttribute("src");
-    image.style.display = "none";
-  }
-
-  subtitle.textContent = scene.subtitle || "";
-  title.textContent = scene.title || "";
-
-  const fadeInMs = Math.min(700, Math.max(150, duration * 0.2));
-  const fadeOutMs = Math.min(700, Math.max(150, duration * 0.2));
-  const fadeIn = Math.min(1, elapsed / fadeInMs);
-  const fadeOutStart = Math.max(0, duration - fadeOutMs);
-  const fadeOut = elapsed >= fadeOutStart
-    ? Math.max(0, 1 - (elapsed - fadeOutStart) / fadeOutMs)
-    : 1;
-
-  root.style.setProperty("--scene-opacity", String(Math.min(fadeIn, fadeOut)));
-  subtitle.style.opacity = "1";
-  title.style.opacity = "1";
-}
-
-function renderTimelineOverlay() {
-  const root = document.getElementById("cinematic-root")!;
-  const image = document.getElementById("cinematic-image") as HTMLImageElement;
-  const copy = document.querySelector<HTMLElement>(".cinematic-copy")!;
-
-  root.classList.remove("boss-intro");
-  root.classList.add("cinematic-running");
-  root.style.background = "transparent";
-  root.style.setProperty("--scene-opacity", "1");
-  image.removeAttribute("src");
-  image.style.display = "none";
-  copy.style.display = "none";
-}
-
-function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-async function applyCamera(scene: CinematicScene, elapsed: number) {
-  const keys = (scene.cues ?? [])
-    .filter((cue) => cue.type === "CAMERA" && cue.camera)
-    .sort((a, b) => a.atMs - b.atMs);
-
-  if (keys.length === 0) return;
-
-  let target = keys[0].camera!;
-  if (elapsed >= keys[keys.length - 1].atMs) {
-    target = keys[keys.length - 1].camera!;
-  } else {
-    for (let i = 0; i < keys.length - 1; i += 1) {
-      const from = keys[i];
-      const to = keys[i + 1];
-      if (elapsed >= from.atMs && elapsed < to.atMs) {
-        const span = Math.max(1, to.atMs - from.atMs);
-        const raw = Math.max(0, Math.min(1, (elapsed - from.atMs) / span));
-        const t = easeInOut(raw);
-        const a = from.camera!;
-        const b = to.camera!;
-        target = {
-          x: lerp(a.x, b.x, t),
-          y: lerp(a.y, b.y, t),
-          scale: lerp(a.scale, b.scale, t),
-        };
-        break;
-      }
-    }
-  }
-
-  // The viewport API controls the current player's view. This cinematic page is
-  // opened locally for every connected extension instance by background.ts, so
-  // each player follows the same shared timeline. We use setPosition/setScale
-  // every frame instead of repeatedly restarting animateTo().
-  await Promise.all([
-    OBR.viewport.setPosition({ x: target.x, y: target.y }),
-    OBR.viewport.setScale(target.scale),
-  ]);
-}
-
-async function play(active: ActiveCinematic) {
-  clearAnimation();
-  activeNonce = active.nonce;
-  currentCameraKey = "";
-  currentCameraSegment = "";
-  executedCueIds.clear();
-
-  const cinematic = active.cinematic;
-  const startedAt = active.startedAt;
-  const introMs = introDuration(active);
-  const timelineMs = timelineDuration(cinematic);
-
-  const tick = async () => {
-    if (active.nonce !== activeNonce) return;
-
-    const elapsedTotal = Date.now() - startedAt;
-    if (elapsedTotal >= introMs + timelineMs) {
-      await close();
-      return;
-    }
-
-    // Phase 1: keep the boss introduction exactly as a full-screen card.
-    // The map camera and all timeline events are intentionally paused here.
-    if (elapsedTotal < introMs) {
-      const introScene = cinematic.scenes[0];
-      if (introScene) renderBossIntroduction(introScene, elapsedTotal, introMs);
-    } else {
-      // Phase 2: remove the card and reveal the actual Owlbear map.
-      // Only now does the camera timeline start moving the player's viewport.
-      renderTimelineOverlay();
-      const timelineElapsed = elapsedTotal - introMs;
-      // Camera movement is intentionally handled by background.ts. The background
-      // page exists for every connected Owlbear client, ensuring players move too.
-      sceneAt(cinematic, timelineElapsed);
-    }
-
-    animationFrame = requestAnimationFrame(() => {
-      void tick();
-    });
-  };
-
-  document.body.classList.add("active");
+function hide(){const root=document.getElementById("cinematic-root")!;root.className="cinematic-root";root.style.setProperty("--scene-opacity","0");}
+async function play(active:ActiveCinematic){
+  if(frame)cancelAnimationFrame(frame);nonce=active.nonce;document.body.classList.add("active");
+  const tick=async()=>{if(active.nonce!==nonce)return;const {cinematic}=active;const {cinematic:elapsed}=introProgress(active);const total=Math.max(500,Number(cinematic.durationMs)||6000);if(elapsed>=total){hide();return;}if(elapsed>=0)render(active);frame=requestAnimationFrame(()=>void tick());};
   await tick();
 }
-
-function clearAnimation() {
-  if (animationFrame) cancelAnimationFrame(animationFrame);
-  animationFrame = 0;
-}
-
-async function close() {
-  clearAnimation();
-  activeNonce = "";
-  currentCameraKey = "";
-  currentCameraSegment = "";
-  executedCueIds.clear();
-  document.body.classList.remove("active");
-  document.getElementById("cinematic-root")?.classList.remove("boss-intro", "cinematic-running");
-}
-
-OBR.onReady(async () => {
-  const metadata = await OBR.room.getMetadata();
-  const active = getActiveFromMetadata(metadata);
-
-  if (active) {
-    await play(active);
-  }
-
-  OBR.room.onMetadataChange(async (nextMetadata) => {
-    const next = getActiveFromMetadata(nextMetadata);
-
-    if (!next) {
-      await close();
-      return;
-    }
-
-    if (next.nonce !== activeNonce) {
-      await play(next);
-    }
-  });
+OBR.onReady(()=>{
+  void OBR.room.getMetadata().then(m=>{const a=activeFrom(m);if(a)void play(a);});
+  OBR.room.onMetadataChange(metadata=>{const a=activeFrom(metadata);if(a)void play(a);else hide();});
 });
