@@ -14,15 +14,18 @@ body { pointer-events:none; user-select:none; }
   font-family:Georgia,"Times New Roman",serif;
   background:#080808;
   opacity:0;
+  transform:scale(1);
 }
 
+/* Fade-in is intentionally a separate state from fade-out. */
 #intro-container.intro-visible {
   display:grid;
   animation:intro-fade-in 650ms cubic-bezier(.22,.61,.36,1) both;
-  animation-delay:var(--intro-animation-delay, 0ms);
+  animation-delay:0ms;
 }
 
-#intro-container.intro-fading {
+/* Only the fade-out state may use a negative delay for late-joining players. */
+#intro-container.intro-visible.intro-fading {
   animation:intro-fade-out 1100ms cubic-bezier(.4,0,.2,1) both;
   animation-delay:var(--intro-animation-delay, 0ms);
 }

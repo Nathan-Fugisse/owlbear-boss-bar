@@ -62,7 +62,14 @@ function renderBoss(boss: BossData | undefined, introActive: boolean) {
   renderDamage(boss.damageEvents ?? []);
 }
 
-function renderIntro(intro: IntroData | undefined, visible: boolean, phase: IntroPhase = "show", phaseStartedAt = 0) {
+let introRenderKey = "";
+
+function renderIntro(
+  intro: IntroData | undefined,
+  visible: boolean,
+  phase: IntroPhase = "show",
+  phaseStartedAt = 0,
+) {
   const root = document.getElementById("intro-container");
   const image = document.getElementById("intro-image") as HTMLImageElement | null;
   const subtitle = document.getElementById("intro-subtitle");
@@ -70,7 +77,9 @@ function renderIntro(intro: IntroData | undefined, visible: boolean, phase: Intr
   if (!root || !image || !subtitle || !name) return;
 
   if (!visible || !intro) {
+    introRenderKey = "";
     root.classList.remove("intro-visible", "intro-fading");
+    root.style.removeProperty("--intro-animation-delay");
     return;
   }
 
@@ -79,7 +88,8 @@ function renderIntro(intro: IntroData | undefined, visible: boolean, phase: Intr
   const nextUrl = intro.imageUrl?.trim() || "";
   if (image.dataset.url !== nextUrl) {
     image.dataset.url = nextUrl;
-    image.src = nextUrl;
+    image.removeAttribute("src");
+    if (nextUrl) image.src = nextUrl;
   }
   image.style.display = nextUrl ? "block" : "none";
 
@@ -87,21 +97,26 @@ function renderIntro(intro: IntroData | undefined, visible: boolean, phase: Intr
   subtitle.style.display = intro.subtitle ? "block" : "none";
   name.textContent = intro.name || "BUSHI";
 
-  // Restart only when entering the intro. The fade phase is intentionally
-  // separate so the image and text dissolve instead of being cut off.
-  const phaseElapsed = Math.max(0, Date.now() - (Number(phaseStartedAt) || Date.now()));
-  root.style.setProperty("--intro-animation-delay", `-${phaseElapsed}ms`);
+  // The visual state is changed only when the shared phase actually changes.
+  // This prevents every metadata notification from restarting the CSS animation.
+  const phaseStarted = Number(phaseStartedAt) || 0;
+  const phaseKey = `${phase}:${phaseStarted}`;
+  if (phaseKey === introRenderKey) return;
+  introRenderKey = phaseKey;
+
+  root.classList.remove("intro-visible", "intro-fading");
+  root.style.removeProperty("--intro-animation-delay");
+  void root.offsetWidth;
 
   if (phase === "fade") {
-    root.classList.remove("intro-visible", "intro-fading");
-    void root.offsetWidth;
+    const elapsed = Math.max(0, Date.now() - phaseStarted);
+    // Negative delay is used only for fade-out, so a player joining late
+    // enters the fade at the same point instead of waiting another 1100ms.
+    root.style.setProperty("--intro-animation-delay", `-${elapsed}ms`);
     root.classList.add("intro-visible", "intro-fading");
   } else {
-    root.classList.remove("intro-fading");
-    if (!root.classList.contains("intro-visible")) {
-      void root.offsetWidth;
-      root.classList.add("intro-visible");
-    }
+    // Always start a new introduction at opacity 0 and let fade-in play.
+    root.classList.add("intro-visible");
   }
 }
 
