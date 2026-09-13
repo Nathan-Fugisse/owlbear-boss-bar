@@ -7,7 +7,7 @@ interface DamageEvent { id: string; amount: number; createdAt: number; }
 interface BossData { name:string; currentHp:number; maxHp:number; color:string; visible:boolean; damageEvents?:DamageEvent[]; }
 interface IntroData { name:string; subtitle:string; imageUrl:string; durationMs:number; background:string; }
 type IntroPhase = "show" | "fade";
-interface RoomState { boss?:BossData; intro?:IntroData; introVisible?:boolean; introPhase?:IntroPhase; introStartedAt?:number; }
+interface RoomState { boss?:BossData; intro?:IntroData; introVisible?:boolean; introPhase?:IntroPhase; introStartedAt?:number; introPhaseStartedAt?:number; }
 
 let overlayOpen = false;
 let finishTimer = 0;
@@ -59,6 +59,7 @@ async function startFade(state: RoomState) {
       ...state,
       introVisible: true,
       introPhase: "fade",
+      introPhaseStartedAt: Date.now(),
     },
   });
 
@@ -73,6 +74,7 @@ async function startFade(state: RoomState) {
         introVisible: false,
         introPhase: undefined,
         introStartedAt: undefined,
+        introPhaseStartedAt: undefined,
       },
     });
   }, FADE_OUT_MS);
@@ -116,6 +118,7 @@ async function update() {
   const state = await getState();
   const introActive = Boolean(state.introVisible && state.intro);
   const bossActive = Boolean(state.boss?.visible);
+  const isGM = (await OBR.player.getRole()) === "GM";
 
   // One persistent overlay is used for both modes. This avoids the race that
   // occurred when one modal was being closed while another was opening.
@@ -130,12 +133,14 @@ async function update() {
 
   if (introActive) {
     // Intro always takes priority. The overlay itself hides the Boss Bar.
+    // Only the GM advances the shared timeline. Players render it locally
+    // from the timestamps, avoiding competing metadata writes.
     const startedAt = Number(state.introStartedAt) || 0;
     if (startedAt !== lastIntroStart) {
       lastIntroStart = startedAt;
       clearTimers();
     }
-    await scheduleIntro(state);
+    if (isGM) await scheduleIntro(state);
   } else {
     // Intro ended: the same overlay immediately switches to the Boss Bar.
     clearTimers();

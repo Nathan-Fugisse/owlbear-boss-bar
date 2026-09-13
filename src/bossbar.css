@@ -19,10 +19,12 @@ body { pointer-events:none; user-select:none; }
 #intro-container.intro-visible {
   display:grid;
   animation:intro-fade-in 650ms cubic-bezier(.22,.61,.36,1) both;
+  animation-delay:var(--intro-animation-delay, 0ms);
 }
 
 #intro-container.intro-fading {
   animation:intro-fade-out 1100ms cubic-bezier(.4,0,.2,1) both;
+  animation-delay:var(--intro-animation-delay, 0ms);
 }
 
 #intro-image {

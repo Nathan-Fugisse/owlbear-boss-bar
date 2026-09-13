@@ -1,8 +1,8 @@
 {
   "name": "RPG Boss Bar",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "manifest_version": 1,
-  "description": "Boss Bar Souls-like com introdução por imagem URL, overlay persistente e fade out suave. Sem sistema de cutscene.",
+  "description": "Boss Bar Souls-like com introdução por imagem URL, overlay persistente e fade out suave, com base preparada para cinemáticas.",
   "author": "Nathan Fugisse",
   "icon": "/icon.svg",
   "background_url": "/background.html",

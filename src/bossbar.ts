@@ -7,7 +7,7 @@ interface DamageEvent { id: string; amount: number; createdAt: number; }
 interface BossData { name:string; currentHp:number; maxHp:number; color:string; visible:boolean; damageEvents?:DamageEvent[]; }
 interface IntroData { name:string; subtitle:string; imageUrl:string; durationMs:number; background:string; }
 type IntroPhase = "show" | "fade";
-interface RoomState { boss?:BossData; intro?:IntroData; introVisible?:boolean; introPhase?:IntroPhase; introStartedAt?:number; }
+interface RoomState { boss?:BossData; intro?:IntroData; introVisible?:boolean; introPhase?:IntroPhase; introStartedAt?:number; introPhaseStartedAt?:number; }
 
 let refreshTimer = 0;
 let fadeFallbackTimer = 0;
@@ -62,7 +62,7 @@ function renderBoss(boss: BossData | undefined, introActive: boolean) {
   renderDamage(boss.damageEvents ?? []);
 }
 
-function renderIntro(intro: IntroData | undefined, visible: boolean, phase: IntroPhase = "show") {
+function renderIntro(intro: IntroData | undefined, visible: boolean, phase: IntroPhase = "show", phaseStartedAt = 0) {
   const root = document.getElementById("intro-container");
   const image = document.getElementById("intro-image") as HTMLImageElement | null;
   const subtitle = document.getElementById("intro-subtitle");
@@ -89,8 +89,11 @@ function renderIntro(intro: IntroData | undefined, visible: boolean, phase: Intr
 
   // Restart only when entering the intro. The fade phase is intentionally
   // separate so the image and text dissolve instead of being cut off.
+  const phaseElapsed = Math.max(0, Date.now() - (Number(phaseStartedAt) || Date.now()));
+  root.style.setProperty("--intro-animation-delay", `-${phaseElapsed}ms`);
+
   if (phase === "fade") {
-    root.classList.remove("intro-visible");
+    root.classList.remove("intro-visible", "intro-fading");
     void root.offsetWidth;
     root.classList.add("intro-visible", "intro-fading");
   } else {
@@ -107,7 +110,7 @@ async function load() {
   const state = metadata[EXTENSION_ID] as RoomState | undefined;
   const introActive = Boolean(state?.introVisible && state?.intro);
 
-  renderIntro(state?.intro, introActive, state?.introPhase ?? "show");
+  renderIntro(state?.intro, introActive, state?.introPhase ?? "show", state?.introPhaseStartedAt);
   renderBoss(state?.boss, introActive);
 
   // Fallback: if the background scheduler is interrupted, the overlay still

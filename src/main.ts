@@ -33,6 +33,7 @@ interface RoomState {
   introVisible?: boolean;
   introPhase?: "show" | "fade";
   introStartedAt?: number;
+  introPhaseStartedAt?: number;
 }
 
 const defaultBoss: BossData = {
@@ -324,6 +325,7 @@ async function initialize() {
       introVisible: show,
       introPhase: show ? "show" : undefined,
       introStartedAt: show ? Date.now() : undefined,
+      introPhaseStartedAt: show ? Date.now() : undefined,
     });
 
     status.textContent = show ? "INTRODUÇÃO ATIVA" : "INTRODUÇÃO SALVA";
@@ -344,6 +346,7 @@ async function initialize() {
           intro: { ...intro },
           introVisible: true,
           introPhase: "fade",
+          introPhaseStartedAt: Date.now(),
         });
       } else {
         await saveState({ ...currentState, intro: { ...intro }, introVisible: false });
