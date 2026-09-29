@@ -103,7 +103,7 @@ body { pointer-events:none; user-select:none; }
 #boss-container {
   position:fixed;
   left:50%;
-  bottom:clamp(92px,12vh,140px);
+  bottom:clamp(130px,16vh,180px);
   transform:translateX(-50%);
   width:min(1220px,72vw);
   display:none;
