@@ -29,7 +29,12 @@ function clearTimers(){if(finishTimer)clearTimeout(finishTimer);if(fadeTimer)cle
 async function finishFade(){
   const latest=(await OBR.room.getMetadata())[EXTENSION_ID] as RoomState|undefined;
   if(!latest?.introVisible||latest.introPhase!=="fade")return;
-  await OBR.room.setMetadata({[EXTENSION_ID]:{...latest,introVisible:false,introPhase:undefined,introStartedAt:undefined,introPhaseStartedAt:undefined}});
+  const finished = {...latest};
+  delete finished.introPhase;
+  delete finished.introStartedAt;
+  delete finished.introPhaseStartedAt;
+  finished.introVisible = false;
+  await OBR.room.setMetadata({[EXTENSION_ID]: finished});
 }
 async function startFade(state:RoomState){
   if(!state.introVisible||!state.intro||state.introPhase==="fade")return;

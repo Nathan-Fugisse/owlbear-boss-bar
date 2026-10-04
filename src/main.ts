@@ -56,8 +56,37 @@ function setLanguage(language: Language): void { localStorage.setItem(LANGUAGE_S
 function t(language: Language, key: string): string { return I18N[language][key] ?? I18N.pt[key] ?? key; }
 function loadIntro(): IntroData { try { const raw = localStorage.getItem(INTRO_STORAGE_KEY); return raw ? { ...defaultIntro, ...JSON.parse(raw) } : { ...defaultIntro }; } catch { return { ...defaultIntro }; } }
 function saveIntroLocal(intro: IntroData): void { localStorage.setItem(INTRO_STORAGE_KEY, JSON.stringify(intro)); }
-async function getState(): Promise<RoomState> { const metadata = await OBR.room.getMetadata(); return (metadata[EXTENSION_ID] as RoomState | undefined) ?? {}; }
-async function saveState(state: RoomState): Promise<void> { await OBR.room.setMetadata({ [EXTENSION_ID]: state }); }
+async function getState(): Promise<RoomState> {
+  if (!OBR.isAvailable || !OBR.isReady) throw new Error("Owlbear Rodeo is not ready.");
+  const metadata = await OBR.room.getMetadata();
+  return (metadata[EXTENSION_ID] as RoomState | undefined) ?? {};
+}
+
+function cleanState(state: RoomState): RoomState {
+  const clean = JSON.parse(JSON.stringify(state)) as RoomState;
+  return clean;
+}
+
+async function saveState(state: RoomState): Promise<void> {
+  if (!OBR.isAvailable || !OBR.isReady) throw new Error("Owlbear Rodeo is not ready.");
+
+  // Room metadata writes can briefly fail while Owlbear is reconnecting.
+  // Retry the same update instead of immediately showing a red error.
+  const payload = { [EXTENSION_ID]: cleanState(state) };
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await OBR.room.setMetadata(payload);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Could not update room metadata.");
+}
 function evaluateHpExpression(raw: string, fallback: number): number {
   const expression = raw.replace(/\s+/g, "");
   if (!expression || !/^[0-9+\-*/().]+$/.test(expression)) return fallback;
@@ -69,6 +98,7 @@ async function initialize() {
   const app = document.querySelector<HTMLDivElement>("#app");
   if (!app) return;
   let language = getLanguage();
+  const L = (key: string) => t(language, key);
   const renderLocked = () => {
     document.documentElement.lang = language === "pt" ? "pt-BR" : language;
     app.innerHTML = `<main class="shell locked"><section class="panel locked-card"><h1>RPG BOSS BAR</h1><p>${t(language, "controlsGM")}</p><div class="language-row"><label>${t(language, "language")}<select id="language-select">${Object.entries(LANGUAGES).map(([key,label]) => `<option value="${key}" ${key===language?"selected":""}>${label}</option>`).join("")}</select></label></div></section></main>`;
@@ -81,7 +111,6 @@ async function initialize() {
   let intro: IntroData = { ...defaultIntro, ...(state.intro ?? loadIntro()) };
 
   const render = () => {
-    const L = (key: string) => t(language, key);
     document.documentElement.lang = language === "pt" ? "pt-BR" : language;
     app.innerHTML = `
       <main class="shell">
@@ -106,9 +135,28 @@ async function initialize() {
     const renderIntro = () => { introImage.value=intro.imageUrl; introName.value=intro.name; introSubtitle.value=intro.subtitle; introDuration.value=String(intro.durationMs); introBackground.value=intro.background; previewName.textContent=intro.name; previewSubtitle.textContent=intro.subtitle; previewSubtitle.style.display=intro.subtitle?"block":"none"; previewImage.style.display=intro.imageUrl?"block":"none"; previewImage.src=intro.imageUrl; document.querySelector<HTMLElement>("#intro-preview")!.style.background=intro.background; };
     const readIntro = (): IntroData => { const duration=Number(introDuration.value); return { name:introName.value.trim()||t(language,"defaultIntro"), subtitle:introSubtitle.value.trim(), imageUrl:introImage.value.trim(), durationMs:Number.isFinite(duration)?Math.max(1000,Math.min(60000,Math.round(duration))):4500, background:introBackground.value||"#080808" }; };
     [introImage,introName,introSubtitle,introDuration,introBackground].forEach(input=>input.addEventListener("input",()=>{const d=readIntro();previewName.textContent=d.name;previewSubtitle.textContent=d.subtitle;previewSubtitle.style.display=d.subtitle?"block":"none";previewImage.style.display=d.imageUrl?"block":"none";previewImage.src=d.imageUrl;document.querySelector<HTMLElement>("#intro-preview")!.style.background=d.background;}));
-    async function saveIntro(show=false){ try { intro=readIntro(); saveIntroLocal(intro); const next=await getState(); await saveState({...next,boss:next.boss??boss,intro,introVisible:show,introPhase:show?"show":undefined,introStartedAt:show?Date.now():undefined,introPhaseStartedAt:show?Date.now():undefined}); status(L(show?"activeIntro":"savedIntro")); } catch(error){ console.error(error); await notifyError(error); } }
+    async function saveIntro(show=false){ try { intro=readIntro(); saveIntroLocal(intro); const next=await getState(); const now = Date.now();
+      const updated: RoomState = { ...next, boss: next.boss ?? boss, intro, introVisible: show };
+      if (show) {
+        updated.introPhase = "show";
+        updated.introStartedAt = now;
+        updated.introPhaseStartedAt = now;
+      } else {
+        delete updated.introPhase;
+        delete updated.introStartedAt;
+        delete updated.introPhaseStartedAt;
+      }
+      await saveState(updated); status(L(show?"activeIntro":"savedIntro")); } catch(error){ console.error(error); await notifyError(error); } }
     document.querySelector<HTMLButtonElement>("#intro-save")!.addEventListener("click",()=>void saveIntro(false)); document.querySelector<HTMLButtonElement>("#intro-show")!.addEventListener("click",()=>void saveIntro(true));
-    document.querySelector<HTMLButtonElement>("#intro-hide")!.addEventListener("click",async()=>{try{const current=await getState();if(current.introVisible)await saveState({...current,intro:{...intro},introVisible:true,introPhase:"fade",introPhaseStartedAt:Date.now()});else await saveState({...current,intro:{...intro},introVisible:false});status(L("endedIntro"));}catch(error){console.error(error);await notifyError(error);}});
+    document.querySelector<HTMLButtonElement>("#intro-hide")!.addEventListener("click",async()=>{try{const current=await getState();if(current.introVisible) {
+        await saveState({...current,intro:{...intro},introVisible:true,introPhase:"fade",introPhaseStartedAt:Date.now()});
+      } else {
+        const updated: RoomState = {...current,intro:{...intro},introVisible:false};
+        delete updated.introPhase;
+        delete updated.introStartedAt;
+        delete updated.introPhaseStartedAt;
+        await saveState(updated);
+      }status(L("endedIntro"));}catch(error){console.error(error);await notifyError(error);}});
 
     const bossName=document.querySelector<HTMLInputElement>("#boss-name")!; const currentHp=document.querySelector<HTMLInputElement>("#current-hp")!; const maxHp=document.querySelector<HTMLInputElement>("#max-hp")!; const bossColor=document.querySelector<HTMLInputElement>("#boss-color")!; const previewBossName=document.querySelector<HTMLDivElement>("#preview-boss-name")!; const previewBossHp=document.querySelector<HTMLDivElement>("#preview-boss-hp")!;
     const renderBoss=()=>{bossName.value=boss.name;currentHp.value=String(boss.currentHp);maxHp.value=String(boss.maxHp);bossColor.value=boss.color;previewBossName.textContent=boss.name;const pct=boss.maxHp>0?Math.max(0,Math.min(100,boss.currentHp/boss.maxHp*100)):0;previewBossHp.style.width=`${pct}%`;previewBossHp.style.backgroundColor=boss.color;previewBossHp.style.boxShadow=`0 0 12px ${boss.color}`;};
@@ -120,7 +168,17 @@ async function initialize() {
   };
 
   const status=(message:string)=>{const el=document.querySelector<HTMLSpanElement>("#status");if(el)el.textContent=message;};
-  const notifyError=async(error:unknown)=>{try{await OBR.notification.show(language === "pt" ? "Não foi possível atualizar a Boss Bar. Verifique a conexão com a sala." : language === "en" ? "Could not update the Boss Bar. Check the room connection." : language === "es" ? "No se pudo actualizar la Boss Bar. Comprueba la conexión de la sala." : "ボスバーを更新できませんでした。ルームの接続を確認してください。", "ERROR");}catch{}};
+  const notifyError=async(error:unknown)=>{
+    console.error("RPG Boss Bar: room update failed", error);
+    const message = language === "pt"
+      ? "Não foi possível sincronizar com a sala após 3 tentativas. Verifique se o Owlbear está conectado."
+      : language === "en"
+        ? "The room could not be synchronized after 3 attempts. Check that Owlbear is connected."
+        : language === "es"
+          ? "No se pudo sincronizar con la sala después de 3 intentos. Comprueba la conexión de Owlbear."
+          : "3回試行してもルームと同期できませんでした。Owlbearの接続を確認してください。";
+    try { await OBR.notification.show(message, "ERROR"); } catch {}
+  };
   render();
 }
 
